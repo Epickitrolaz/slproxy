@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SLProxy — AI Model Router & Plugin Engine</title>
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+              950: '#082f49',
+            },
+            surface: {
+              800: '#1e293b',
+              850: '#131d2e',
+              900: '#0f172a',
+              950: '#090d16',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- CodeMirror 5 CDN for Python Editor -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-surface-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800/80 bg-surface-900/80 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-sky-400 flex items-center justify-center shadow-lg shadow-sky-500/20 ring-1 ring-sky-400/30">
+        <span class="text-white font-bold text-lg tracking-wider">S</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-sky-400 bg-clip-text text-transparent">SLProxy</span>
+          <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">v1.0.0</span>
+          <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-medium ml-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot inline-block"></span> Live
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden sm:block">AI Router & Dynamic Python Plugins</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="hidden md:flex items-center gap-1 bg-surface-950/60 p-1 rounded-xl border border-slate-800">
+      <button data-tab="dashboard" class="nav-tab active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white transition-all">
+        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+        <span>Dashboard</span>
+      </button>
+      <button data-tab="plugins" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all">
+        <i data-lucide="blocks" class="w-3.5 h-3.5"></i>
+        <span>Plugins & Editor</span>
+      </button>
+      <button data-tab="accounts" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all">
+        <i data-lucide="users" class="w-3.5 h-3.5"></i>
+        <span>Accounts</span>
+      </button>
+      <button data-tab="keys" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all">
+        <i data-lucide="key" class="w-3.5 h-3.5"></i>
+        <span>Router Keys</span>
+      </button>
+      <button data-tab="logs" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all">
+        <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+        <span>Live Logs</span>
+      </button>
+      <button data-tab="playground" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all">
+        <i data-lucide="play" class="w-3.5 h-3.5"></i>
+        <span>Playground</span>
+      </button>
+      <button data-tab="settings" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all">
+        <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- Top Right Actions -->
+    <div class="flex items-center gap-2.5">
+      <button id="btn-quick-playground" class="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-sky-500/20 transition-all">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Test API</span>
+      </button>
+      <button id="btn-refresh-all" title="Refresh metrics and state" class="p-2 rounded-lg bg-surface-800 text-slate-400 hover:text-slate-100 hover:bg-slate-700/60 border border-slate-700/60 transition-all">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Tab Navigation Bar -->
+  <div class="md:hidden flex overflow-x-auto gap-1 p-2 bg-surface-900 border-b border-slate-800 scrollbar-none">
+    <button data-tab="dashboard" class="nav-tab active flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-300">
+      <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> Dashboard
+    </button>
+    <button data-tab="plugins" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-400">
+      <i data-lucide="blocks" class="w-3.5 h-3.5"></i> Plugins
+    </button>
+    <button data-tab="accounts" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-400">
+      <i data-lucide="users" class="w-3.5 h-3.5"></i> Accounts
+    </button>
+    <button data-tab="keys" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-400">
+      <i data-lucide="key" class="w-3.5 h-3.5"></i> Keys
+    </button>
+    <button data-tab="logs" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-400">
+      <i data-lucide="activity" class="w-3.5 h-3.5"></i> Logs
+    </button>
+    <button data-tab="playground" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-400">
+      <i data-lucide="play" class="w-3.5 h-3.5"></i> Playground
+    </button>
+    <button data-tab="settings" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-slate-400">
+      <i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings
+    </button>
+  </div>
+
+  <!-- Main Content Viewport -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: DASHBOARD -->
+    <!-- ========================================================================= -->
+    <section id="tab-dashboard" class="tab-content space-y-6">
+      
+      <!-- Top Metrics Banner -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        
+        <!-- Total Requests -->
+        <div class="glass-panel p-4 rounded-2xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-sky-500/10 rounded-full blur-xl group-hover:bg-sky-500/20 transition-all"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-400">Total Requests</span>
+            <span class="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <i data-lucide="zap" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div class="text-2xl font-bold tracking-tight text-white" id="stat-total-requests">0</div>
+          <div class="text-[11px] text-emerald-400 flex items-center gap-1 mt-1 font-medium">
+            <i data-lucide="trending-up" class="w-3 h-3"></i>
+            <span id="stat-req-sub">Live streaming</span>
+          </div>
+        </div>
+
+        <!-- Success Rate -->
+        <div class="glass-panel p-4 rounded-2xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-400">Success Rate</span>
+            <span class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div class="text-2xl font-bold tracking-tight text-white" id="stat-success-rate">100.0%</div>
+          <div class="text-[11px] text-slate-400 mt-1" id="stat-err-sub">0 failed requests</div>
+        </div>
+
+        <!-- Total Tokens -->
+        <div class="glass-panel p-4 rounded-2xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-400">Total Tokens</span>
+            <span class="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <i data-lucide="cpu" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div class="text-2xl font-bold tracking-tight text-white" id="stat-total-tokens">0</div>
+          <div class="text-[11px] text-slate-400 mt-1">Prompt & Completion</div>
+        </div>
+
+        <!-- Active Providers -->
+        <div class="glass-panel p-4 rounded-2xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-400">Active Providers</span>
+            <span class="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <i data-lucide="server" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div class="text-2xl font-bold tracking-tight text-white" id="stat-active-providers">0 / 0</div>
+          <div class="text-[11px] text-slate-400 mt-1" id="stat-accounts-sub">0 configured accounts</div>
+        </div>
+
+        <!-- Average Latency -->
+        <div class="glass-panel p-4 rounded-2xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-pink-500/10 rounded-full blur-xl group-hover:bg-pink-500/20 transition-all"></div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-400">Avg Latency</span>
+            <span class="p-2 rounded-xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+              <i data-lucide="clock" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div class="text-2xl font-bold tracking-tight text-white" id="stat-avg-latency">0 ms</div>
+          <div class="text-[11px] text-emerald-400 mt-1 font-medium flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+            <span>Optimized failover</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Action / Announcement Banner -->
+      <div class="glass-panel-glow p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500/30 to-indigo-500/30 border border-sky-400/40 flex items-center justify-center shrink-0">
+            <i data-lucide="terminal" class="w-6 h-6 text-sky-400"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <span>Dynamic Python Plugins & Sub-second Hot Reload</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">&lt; 1s Reload</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Edit provider interceptors, token counters, headers, and rate limit detectors directly in your browser without restarting the server.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 self-stretch md:self-auto shrink-0">
+          <button data-tab="plugins" class="nav-tab-trigger flex-1 md:flex-none px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs rounded-xl transition-all shadow-md shadow-sky-500/20 flex items-center justify-center gap-2">
+            <i data-lucide="code" class="w-3.5 h-3.5"></i>
+            <span>Open Plugin Editor</span>
+          </button>
+          <button data-tab="accounts" class="nav-tab-trigger flex-1 md:flex-none px-4 py-2 bg-surface-800 hover:bg-surface-850 border border-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Add Account</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Provider Status Overview Grid -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-sky-400"></i>
+            <span>Provider Status & Quota Overview</span>
+          </h3>
+          <span class="text-xs text-slate-500">Live health monitoring</span>
+        </div>
+        <div id="dashboard-provider-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Latency & Performance Breakdown -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Latency Chart / Cards -->
+        <div class="glass-panel p-5 rounded-2xl lg:col-span-2 space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="gauge" class="w-4 h-4 text-sky-400"></i>
+              <span>Routing Latency & Provider Distribution</span>
+            </h4>
+            <span class="text-xs text-slate-400 font-mono">Response time ms</span>
+          </div>
+          <div id="latency-bars-container" class="space-y-3">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Router Health & Endpoints Status -->
+        <div class="glass-panel p-5 rounded-2xl space-y-4">
+          <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+            <span>Local Router Endpoints</span>
+          </h4>
+          <div class="space-y-2.5 text-xs">
+            <div class="p-2.5 rounded-xl bg-surface-950/70 border border-slate-800/80 flex items-center justify-between">
+              <span class="font-mono text-slate-300">/routerapi/v1/chat/completions</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OpenAI</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-surface-950/70 border border-slate-800/80 flex items-center justify-between">
+              <span class="font-mono text-slate-300">/routerapi/v1/messages</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">Anthropic</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-surface-950/70 border border-slate-800/80 flex items-center justify-between">
+              <span class="font-mono text-slate-300">/routerapi/v1/models</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">Unified</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-surface-950/70 border border-slate-800/80 flex items-center justify-between">
+              <span class="font-mono text-slate-300">/routerapi/health</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">OK</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Storage: <strong class="text-slate-300">SQLite (/data)</strong></span>
+            <span>Reload: <strong class="text-emerald-400">&lt; 1s</strong></span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: PLUGINS & IN-BROWSER CODE EDITOR -->
+    <!-- ========================================================================= -->
+    <section id="tab-plugins" class="tab-content hidden space-y-6">
+
+      <!-- Header & Action Toolbar -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>Provider Plugins & Live Code Editor</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">Hot Reload</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            View, edit, and instantly hot-deploy Python provider plugins in real-time.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button id="btn-reload-all-plugins" class="flex-1 sm:flex-none px-3.5 py-2 bg-surface-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700/80 transition-all flex items-center justify-center gap-1.5">
+            <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+            <span>Reload All</span>
+          </button>
+          <button id="btn-create-plugin-modal" class="flex-1 sm:flex-none px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl text-xs font-semibold shadow-md shadow-sky-500/20 transition-all flex items-center justify-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+            <span>Create New Plugin</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- IN-BROWSER CODE EDITOR PANEL -->
+      <div id="plugin-editor-card" class="glass-panel p-5 rounded-2xl space-y-4 border border-sky-500/30 relative">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                <i data-lucide="file-code" class="w-4 h-4"></i>
+              </span>
+              <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">In-Browser Code Editor:</span>
+            </div>
+
+            <!-- Plugin Selector Dropdown -->
+            <select id="editor-plugin-select" class="bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-sky-400">
+              <!-- Populated dynamically -->
+            </select>
+
+            <!-- Template presets selector -->
+            <select id="editor-template-select" class="bg-surface-950 text-slate-400 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-sans hover:text-slate-200 focus:outline-none">
+              <option value="">Insert Template Snippet...</option>
+              <option value="base">Standard BasePlugin</option>
+              <option value="auth_header">Custom Header Injection</option>
+              <option value="moonmath_quota">Moonmath Zro Limit Interceptor</option>
+              <option value="streaming_transform">Streaming Event Transformer</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2.5 self-end lg:self-auto">
+            <span id="editor-status-badge" class="text-[11px] font-mono text-slate-400 px-2.5 py-1 rounded-md bg-surface-950 border border-slate-800 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+              <span>Ready</span>
+            </span>
+            <button id="btn-editor-reset" class="px-3 py-1.5 bg-surface-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium border border-slate-700 transition-all">
+              Reset Code
+            </button>
+            <button id="btn-editor-save-deploy" class="px-5 py-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold text-xs rounded-lg shadow-lg shadow-sky-500/25 transition-all flex items-center gap-2 ring-1 ring-sky-300/30">
+              <i data-lucide="zap" class="w-3.5 h-3.5 fill-current"></i>
+              <span>Save & Deploy</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- CodeMirror Editor Mount Point -->
+        <div class="relative rounded-xl overflow-hidden border border-slate-800">
+          <textarea id="plugin-code-textarea" class="hidden"></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-slate-400 gap-2">
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1 font-mono text-[11px] text-slate-400">
+              <i data-lucide="info" class="w-3 h-3 text-sky-400"></i>
+              <span>Subclass <code class="text-sky-300">BasePlugin</code>. Changes take effect on next request in &lt; 1s.</span>
+            </span>
+          </div>
+          <div id="hot-reload-time-display" class="font-mono text-emerald-400 text-[11px] font-medium hidden">
+            Last deployed in 28ms
+          </div>
+        </div>
+      </div>
+
+      <!-- Installed Provider Plugins List -->
+      <div class="space-y-3">
+        <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+          <i data-lucide="boxes" class="w-4 h-4 text-sky-400"></i>
+          <span>Installed Providers & Models</span>
+        </h3>
+        <div id="plugins-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: ACCOUNTS MANAGEMENT -->
+    <!-- ========================================================================= -->
+    <section id="tab-accounts" class="tab-content hidden space-y-6">
+
+      <!-- Header & Actions -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>Provider Accounts</span>
+            <span id="badge-accounts-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-surface-800 text-slate-300 border border-slate-700">0 Accounts</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Configure multiple API keys and endpoints per provider with priority failover, weighted round-robin, and rate limit cooldowns.
+          </p>
+        </div>
+        <button id="btn-add-account-modal" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl text-xs font-semibold shadow-md shadow-sky-500/20 transition-all flex items-center gap-1.5">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+          <span>Add Account</span>
+        </button>
+      </div>
+
+      <!-- Accounts Filter Bar -->
+      <div class="glass-panel p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400 font-medium">Filter Provider:</span>
+          <select id="filter-accounts-provider" class="bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 text-xs focus:outline-none">
+            <option value="all">All Providers</option>
+          </select>
+        </div>
+        <div class="text-slate-400 text-[11px] flex items-center gap-3">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Active</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Rate Limited / Cooldown</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> Disabled</span>
+        </div>
+      </div>
+
+      <!-- Accounts Table / Card Grid -->
+      <div id="accounts-list-container" class="space-y-3">
+        <!-- Populated by JS -->
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: ROUTER KEYS -->
+    <!-- ========================================================================= -->
+    <section id="tab-keys" class="tab-content hidden space-y-6">
+
+      <!-- Header & Actions -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>Local Router API Keys</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Client Auth</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Create tokens for Cline, Cursor, OpenCode, scripts, and applications connecting to <code class="text-sky-300">/routerapi</code>.
+          </p>
+        </div>
+        <button id="btn-generate-key-modal" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5">
+          <i data-lucide="key" class="w-3.5 h-3.5"></i>
+          <span>Generate New Key</span>
+        </button>
+      </div>
+
+      <!-- Key Usage Notice -->
+      <div class="glass-panel p-4 rounded-xl border-l-4 border-l-sky-500 flex items-start gap-3">
+        <i data-lucide="shield" class="w-5 h-5 text-sky-400 shrink-0 mt-0.5"></i>
+        <div class="text-xs space-y-1">
+          <p class="font-semibold text-slate-200">How clients connect to SLProxy</p>
+          <p class="text-slate-400">
+            Pass the router key in header <code class="px-1 py-0.5 rounded bg-surface-950 text-sky-300 border border-slate-800 font-mono">Authorization: Bearer slp-live-...</code> with base URL <code class="px-1 py-0.5 rounded bg-surface-950 text-sky-300 border border-slate-800 font-mono">http://localhost:8080/routerapi/v1</code>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Router Keys Table -->
+      <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-surface-900/90 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Key Name</th>
+                <th class="px-4 py-3">Token Prefix</th>
+                <th class="px-4 py-3">Requests Used</th>
+                <th class="px-4 py-3">Tokens Used</th>
+                <th class="px-4 py-3">Allowed Models</th>
+                <th class="px-4 py-3">Expires</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="keys-table-body" class="divide-y divide-slate-800/60 font-sans">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: LIVE LOGS -->
+    <!-- ========================================================================= -->
+    <section id="tab-logs" class="tab-content hidden space-y-6">
+
+      <!-- Header & Auto Refresh Controls -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>Live Request Stream</span>
+            <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot inline-block"></span>
+              <span>Streaming</span>
+            </span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Real-time telemetry showing routed requests, account selections, latency, and tokens.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button id="btn-toggle-log-stream" class="px-3.5 py-1.5 bg-surface-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-all">
+            <i data-lucide="pause" id="icon-log-stream" class="w-3.5 h-3.5"></i>
+            <span id="text-log-stream">Pause</span>
+          </button>
+          <button id="btn-clear-logs" class="px-3.5 py-1.5 bg-surface-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 rounded-xl text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition-all">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Clear</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="glass-panel p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex flex-wrap items-center gap-3">
+          <input type="text" id="filter-logs-search" placeholder="Search model, endpoint, or error..." class="bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-xs w-60 focus:outline-none focus:border-sky-400 placeholder:text-slate-500" />
+          <select id="filter-logs-status" class="bg-surface-950 text-slate-300 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none">
+            <option value="all">All Status Codes</option>
+            <option value="200">200 OK</option>
+            <option value="error">Errors & Quotas (4xx / 5xx)</option>
+          </select>
+        </div>
+        <span id="logs-count-display" class="text-slate-500 text-[11px]">0 logs recorded</span>
+      </div>
+
+      <!-- Logs Table -->
+      <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-surface-900/90 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="px-4 py-3">Time</th>
+                <th class="px-4 py-3">Endpoint</th>
+                <th class="px-4 py-3">Model</th>
+                <th class="px-4 py-3">Provider</th>
+                <th class="px-4 py-3">Account</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Latency</th>
+                <th class="px-4 py-3">Tokens</th>
+                <th class="px-4 py-3">Error</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 6: INTERACTIVE PLAYGROUND -->
+    <!-- ========================================================================= -->
+    <section id="tab-playground" class="tab-content hidden space-y-6">
+
+      <!-- Header -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>Interactive API Playground</span>
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">Test Route</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Test <code class="text-sky-300">/routerapi/v1/chat/completions</code> through your dynamic plugins directly from the browser!
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btn-copy-curl" class="px-3.5 py-2 bg-surface-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all flex items-center gap-1.5">
+            <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+            <span>Copy cURL</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Controls Column (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800">
+            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-sky-400"></i>
+              <span>Request Configuration</span>
+            </h3>
+
+            <!-- Key Selector -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Router Key</label>
+              <select id="pg-key-select" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-sky-400">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Model Selector -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Model</label>
+              <select id="pg-model-select" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-sky-400">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Temperature Slider -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-300 font-medium">Temperature</span>
+                <span id="pg-temp-val" class="font-mono text-sky-400 font-bold">0.7</span>
+              </div>
+              <input type="range" id="pg-temperature" min="0" max="2" step="0.1" value="0.7" class="w-full accent-sky-400 bg-surface-950 h-1.5 rounded-lg appearance-none cursor-pointer" />
+            </div>
+
+            <!-- Max Tokens -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Max Tokens</label>
+              <input type="number" id="pg-max-tokens" value="1024" min="1" max="32768" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-sky-400" />
+            </div>
+
+            <!-- Stream Checkbox -->
+            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-950/60 border border-slate-800">
+              <div>
+                <span class="text-xs font-medium text-slate-200 block">Streaming Response</span>
+                <span class="text-[11px] text-slate-500">SSE chunks via proxy engine</span>
+              </div>
+              <input type="checkbox" id="pg-stream" checked class="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
+            </div>
+
+            <!-- System Prompt -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">System Prompt</label>
+              <textarea id="pg-system-prompt" rows="2" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg p-3 text-xs focus:outline-none focus:border-sky-400 placeholder:text-slate-600 resize-none" placeholder="You are a helpful AI assistant."></textarea>
+            </div>
+
+            <!-- User Message -->
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">User Message</label>
+              <textarea id="pg-user-message" rows="3" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg p-3 text-xs focus:outline-none focus:border-sky-400 placeholder:text-slate-600 resize-none">Explain the benefits of dynamic Python plugins in AI routers in 2 sentences.</textarea>
+            </div>
+
+            <!-- Send Request Button -->
+            <button id="btn-pg-send" class="w-full py-2.5 bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-500/25 transition-all flex items-center justify-center gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              <span id="pg-send-text">Send Chat Completion</span>
+            </button>
+
+          </div>
+        </div>
+
+        <!-- Response Column (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="glass-panel p-5 rounded-2xl space-y-4 border border-slate-800 min-h-[520px] flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i>
+                <span>Response Stream</span>
+              </h3>
+              <div class="flex items-center gap-2 text-[11px]" id="pg-meta-badge">
+                <span class="text-slate-500">Ready</span>
+              </div>
+            </div>
+
+            <!-- Output Message Viewport -->
+            <div id="pg-output-box" class="flex-1 bg-surface-950/80 rounded-xl p-4 border border-slate-800 text-xs font-sans whitespace-pre-wrap overflow-y-auto max-h-[460px] text-slate-200 leading-relaxed font-mono">
+Click "Send Chat Completion" to test routing to your configured providers.
+            </div>
+
+            <!-- Raw JSON Response Drawer Toggle -->
+            <div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <button id="btn-toggle-raw-json" class="text-sky-400 hover:underline flex items-center gap-1 text-[11px]">
+                <i data-lucide="braces" class="w-3.5 h-3.5"></i>
+                <span id="text-raw-json">View Raw JSON</span>
+              </button>
+              <div id="pg-perf-stats" class="text-[11px] font-mono text-slate-500"></div>
+            </div>
+
+            <pre id="pg-raw-json" class="hidden bg-surface-950 p-3 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 max-h-48 overflow-y-auto overflow-x-auto"></pre>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 7: SETTINGS & SYSTEM -->
+    <!-- ========================================================================= -->
+    <section id="tab-settings" class="tab-content hidden space-y-6">
+
+      <!-- Header -->
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>Router Settings & Configuration</span>
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Configure proxy routing strategies, local port, storage, and import/export backups.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Routing Strategy Settings -->
+        <div class="glass-panel p-5 rounded-2xl space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="shuffle" class="w-4 h-4 text-sky-400"></i>
+            <span>Default Multi-Account Routing Strategy</span>
+          </h3>
+
+          <div class="space-y-3">
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-surface-950/70 border border-slate-800 cursor-pointer hover:border-slate-700 transition-all">
+              <input type="radio" name="routing-strategy" value="fallback" checked class="mt-1 accent-sky-400" />
+              <div>
+                <span class="text-xs font-bold text-white block">Priority Fallback (Recommended)</span>
+                <span class="text-[11px] text-slate-400 block mt-0.5">
+                  Tries accounts with lowest priority integer (1, 2, ...). If rate-limited (429/quota), automatically enters cooldown backoff and fails over instantly to the next account.
+                </span>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-surface-950/70 border border-slate-800 cursor-pointer hover:border-slate-700 transition-all">
+              <input type="radio" name="routing-strategy" value="round_robin" class="mt-1 accent-sky-400" />
+              <div>
+                <span class="text-xs font-bold text-white block">Weighted Round-Robin</span>
+                <span class="text-[11px] text-slate-400 block mt-0.5">
+                  Evenly distributes requests across all active accounts weighted by their configured weight value, maximizing total throughput.
+                </span>
+              </div>
+            </label>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex justify-end">
+            <button id="btn-save-strategy" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all">
+              Save Strategy
+            </button>
+          </div>
+        </div>
+
+        <!-- System & Backup -->
+        <div class="glass-panel p-5 rounded-2xl space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="database" class="w-4 h-4 text-purple-400"></i>
+            <span>Configuration Backup & Restore</span>
+          </h3>
+
+          <p class="text-xs text-slate-400">
+            Export all accounts, router keys, and custom plugin code as a portable JSON snapshot.
+          </p>
+
+          <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <button id="btn-export-config" class="flex-1 px-4 py-2.5 bg-surface-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Export Config (JSON)</span>
+            </button>
+            <label class="flex-1 px-4 py-2.5 bg-surface-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span>Import Config</span>
+              <input type="file" id="input-import-config" accept=".json" class="hidden" />
+            </label>
+          </div>
+
+          <!-- Environment Specs -->
+          <div class="pt-4 border-t border-slate-800 space-y-2 text-xs">
+            <div class="flex items-center justify-between text-slate-400">
+              <span>Server Host / Port:</span>
+              <span class="font-mono text-slate-200 font-semibold">0.0.0.0:8080</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-400">
+              <span>Data Volume:</span>
+              <span class="font-mono text-slate-200">/data (slproxy.db)</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-400">
+              <span>Hot Reload Latency:</span>
+              <span class="font-mono text-emerald-400 font-semibold">&lt; 1s instantaneous</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: ADD / EDIT ACCOUNT -->
+  <!-- ========================================================================= -->
+  <div id="modal-account" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="glass-panel p-6 rounded-2xl max-w-lg w-full space-y-5 border border-slate-700 shadow-2xl animate-in">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 id="modal-account-title" class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4 text-sky-400"></i>
+          <span>Add Provider Account</span>
+        </h3>
+        <button class="modal-close p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-account" class="space-y-4 text-xs">
+        <input type="hidden" id="acc-id" />
+
+        <!-- Provider Select -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Provider *</label>
+          <select id="acc-provider" required class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Account Name -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Account Name *</label>
+          <input type="text" id="acc-name" required placeholder="e.g. Primary Antigravity Pro, Team Backup Key" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400" />
+        </div>
+
+        <!-- API Key -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">API Key / Token</label>
+          <div class="relative">
+            <input type="password" id="acc-api-key" placeholder="sk-..." class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:border-sky-400 font-mono" />
+            <button type="button" id="btn-toggle-acc-key" class="absolute right-2 top-2 text-slate-400 hover:text-white">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Base URL -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Custom Base URL (Optional)</label>
+          <input type="url" id="acc-base-url" placeholder="https://api.openai.com/v1 or custom proxy" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400 font-mono" />
+        </div>
+
+        <!-- Priority & Weight -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Priority (1 = Highest)</label>
+            <input type="number" id="acc-priority" value="1" min="1" max="100" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400" />
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Weight (for Round-Robin)</label>
+            <input type="number" id="acc-weight" value="10" min="1" max="1000" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400" />
+          </div>
+        </div>
+
+        <!-- Extra Headers JSON -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Extra Headers (JSON)</label>
+          <textarea id="acc-extra-headers" rows="2" placeholder='{"X-Custom-Auth": "value"}' class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg p-2 font-mono text-[11px] focus:outline-none focus:border-sky-400 resize-none">{}</textarea>
+        </div>
+
+        <!-- Extra Config JSON -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Extra Config (JSON)</label>
+          <textarea id="acc-extra-config" rows="2" placeholder='{"quota_mode": "strict"}' class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg p-2 font-mono text-[11px] focus:outline-none focus:border-sky-400 resize-none">{}</textarea>
+        </div>
+
+        <!-- Is Active Checkbox -->
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="acc-active" checked class="w-4 h-4 accent-sky-500 rounded" />
+          <label for="acc-active" class="font-medium text-slate-300 cursor-pointer">Account Enabled</label>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+          <button type="button" class="modal-close px-4 py-2 bg-surface-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl shadow-md">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: GENERATE ROUTER KEY -->
+  <!-- ========================================================================= -->
+  <div id="modal-key-gen" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="glass-panel p-6 rounded-2xl max-w-md w-full space-y-5 border border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="key" class="w-4 h-4 text-emerald-400"></i>
+          <span>Generate Router API Key</span>
+        </h3>
+        <button class="modal-close p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-key-gen" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Key Name *</label>
+          <input type="text" id="keygen-name" required placeholder="e.g. Cursor IDE, Cline, Agent 1" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-400" />
+        </div>
+
+        <!-- Expiration Preset -->
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Expiration</label>
+          <select id="keygen-expires" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-400">
+            <option value="never">Never (Persistent)</option>
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+            <option value="90d">90 Days</option>
+          </select>
+        </div>
+
+        <!-- Limits -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Max Requests Limit</label>
+            <input type="number" id="keygen-max-reqs" placeholder="Unlimited" min="1" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-400" />
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Max Tokens Limit</label>
+            <input type="number" id="keygen-max-tokens" placeholder="Unlimited" min="1000" step="1000" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-400" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Allowed Models (Comma separated or * for all)</label>
+          <input type="text" id="keygen-models" value="*" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-emerald-400" />
+        </div>
+
+        <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+          <button type="button" class="modal-close px-4 py-2 bg-surface-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-md">Create Key</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: SHOW CREATED KEY (ONE TIME TOKEN DISPLAY) -->
+  <!-- ========================================================================= -->
+  <div id="modal-key-display" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="glass-panel p-6 rounded-2xl max-w-lg w-full space-y-5 border border-emerald-500/40 shadow-2xl">
+      <div class="flex items-center gap-3">
+        <div class="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+          <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Router API Key Generated</h3>
+          <p class="text-xs text-slate-400">Save this secret key. It will never be displayed again!</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-surface-950 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+        <code id="display-raw-token" class="font-mono text-emerald-400 text-xs break-all select-all">slp-live-...</code>
+        <button id="btn-copy-generated-token" class="p-2 rounded-lg bg-surface-850 hover:bg-slate-700 text-slate-200 border border-slate-700 shrink-0 transition-all" title="Copy to clipboard">
+          <i data-lucide="copy" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+        <span>Store this key securely. Client applications should pass it via <code class="font-mono">Authorization: Bearer slp-live-...</code>.</span>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button class="modal-close px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs">
+          I Have Saved My Key
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CREATE NEW PLUGIN TEMPLATE -->
+  <!-- ========================================================================= -->
+  <div id="modal-create-plugin" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="glass-panel p-6 rounded-2xl max-w-md w-full space-y-5 border border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-sky-400"></i>
+          <span>Create New Provider Plugin</span>
+        </h3>
+        <button class="modal-close p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-create-plugin" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Plugin ID (Unique identifier) *</label>
+          <input type="text" id="new-plugin-id" required pattern="[a-z0-9_-]+" placeholder="e.g. custom_llm" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-sky-400" />
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Provider Display Name *</label>
+          <input type="text" id="new-plugin-name" required placeholder="e.g. My Custom Provider" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400" />
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">API Protocol Format</label>
+          <select id="new-plugin-format" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:border-sky-400">
+            <option value="openai">OpenAI Compatible (/v1/chat/completions)</option>
+            <option value="anthropic">Anthropic Compatible (/v1/messages)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Default Base URL</label>
+          <input type="url" id="new-plugin-url" placeholder="https://api.example.com/v1" class="w-full bg-surface-950 text-slate-200 border border-slate-700 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-sky-400" />
+        </div>
+
+        <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+          <button type="button" class="modal-close px-4 py-2 bg-surface-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl shadow-md">Create & Open in Editor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 bg-surface-950 px-4 py-4 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-slate-400">SLProxy</span>
+        <span>•</span>
+        <span>Sub-second Hot Reloading Python AI Proxy</span>
+      </div>
+      <div>
+        <span>Port 8080</span> • <span>Docker Ready</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Main Application Script -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
