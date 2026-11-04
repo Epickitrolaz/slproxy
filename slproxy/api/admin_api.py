@@ -86,6 +86,18 @@ class KeyCreateRequest(BaseModel):
     extra_metadata: Optional[Dict[str, Any]] = None
 
 
+class ModelAddRequest(BaseModel):
+    id: str
+    name: str
+    context_window: Optional[int] = None
+    max_output_tokens: Optional[int] = None
+    supports_streaming: bool = True
+    supports_tools: bool = True
+    supports_vision: bool = False
+    pricing: Optional[Dict[str, float]] = None
+    extra: Optional[Dict[str, Any]] = None
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
@@ -167,6 +179,19 @@ async def get_plugins(request: Request):
         async with db.conn.execute("SELECT provider_id, COUNT(*) as cnt FROM accounts GROUP BY provider_id") as cur:
             for row in await cur.fetchall():
                 account_counts[row["provider_id"]] = row["cnt"]
+        try:
+            async with db.conn.execute("SELECT plugin_id, models FROM plugin_settings WHERE models IS NOT NULL") as cur:
+                for row in await cur.fetchall():
+                    p_id = row["plugin_id"]
+                    if pm and p_id in pm.plugins and row["models"]:
+                        try:
+                            persisted = [ModelInfo(**item) for item in json.loads(row["models"])]
+                            if persisted:
+                                pm.plugins[p_id].models = persisted
+                        except Exception:
+                            pass
+        except Exception:
+            pass
 
     plugin_list: List[Dict[str, Any]] = []
     if pm:
@@ -378,6 +403,88 @@ async def delete_plugin(plugin_id: str, request: Request):
         await db.conn.commit()
 
     return {"status": "deleted", "id": plugin_id}
+
+
+@router.post("/plugins/{plugin_id}/models")
+async def add_plugin_model(plugin_id: str, payload: ModelAddRequest, request: Request):
+    """
+    Dynamically add or update a model for a specific plugin.
+    Adds model to plugin.add_model(model_info) and persists update to SQLite plugin_settings.
+    """
+    pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
+    db: Optional[Database] = getattr(request.app.state, "db", None)
+
+    plugin = pm.get_plugin(plugin_id) if pm else None
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+
+    model_info = ModelInfo(
+        id=payload.id,
+        name=payload.name,
+        context_window=payload.context_window,
+        max_output_tokens=payload.max_output_tokens,
+        supports_streaming=payload.supports_streaming,
+        supports_tools=payload.supports_tools,
+        supports_vision=payload.supports_vision,
+        pricing=payload.pricing or {},
+        extra=payload.extra or {},
+    )
+
+    plugin.add_model(model_info)
+
+    if db:
+        try:
+            await db.conn.execute("ALTER TABLE plugin_settings ADD COLUMN models TEXT")
+            await db.conn.commit()
+        except Exception:
+            pass
+        now = time.time()
+        models_json = json.dumps([m.model_dump() for m in plugin.models])
+        await db.conn.execute(
+            """INSERT INTO plugin_settings (plugin_id, models, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(plugin_id) DO UPDATE SET models = excluded.models, updated_at = excluded.updated_at""",
+            (plugin_id, models_json, now),
+        )
+        await db.conn.commit()
+
+    return {"status": "added", "model": model_info.model_dump()}
+
+
+@router.delete("/plugins/{plugin_id}/models/{model_id}")
+async def remove_plugin_model(plugin_id: str, model_id: str, request: Request):
+    """
+    Dynamically remove a model from a plugin's supported models list.
+    Removes model via plugin.remove_model(model_id) and persists update to SQLite plugin_settings.
+    """
+    pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
+    db: Optional[Database] = getattr(request.app.state, "db", None)
+
+    plugin = pm.get_plugin(plugin_id) if pm else None
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+
+    removed = plugin.remove_model(model_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found in plugin '{plugin_id}'")
+
+    if db:
+        try:
+            await db.conn.execute("ALTER TABLE plugin_settings ADD COLUMN models TEXT")
+            await db.conn.commit()
+        except Exception:
+            pass
+        now = time.time()
+        models_json = json.dumps([m.model_dump() for m in plugin.models])
+        await db.conn.execute(
+            """INSERT INTO plugin_settings (plugin_id, models, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(plugin_id) DO UPDATE SET models = excluded.models, updated_at = excluded.updated_at""",
+            (plugin_id, models_json, now),
+        )
+        await db.conn.commit()
+
+    return {"status": "removed", "model_id": model_id}
 
 
 @router.get("/templates")

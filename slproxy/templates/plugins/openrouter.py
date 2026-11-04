@@ -1,5 +1,22 @@
 """
 OpenRouter Provider Plugin
+==========================
+
+Educational Reference Implementation for OpenRouter Multi-Model Routing.
+
+Overview & Architectural Rationale
+-----------------------------------
+OpenRouter acts as a unified aggregator and intelligent router across dozens of AI providers
+(OpenAI, Anthropic, Google, DeepSeek, Meta, Mistral, and open-source models).
+
+1. Ranking and App Telemetry:
+   OpenRouter requests benefit from providing application attribution:
+   - `HTTP-Referer`: Identifies the origin site/application for analytics and dashboard visibility.
+   - `X-Title`: Displays the application name on OpenRouter leaderboard and analytics.
+
+2. Model Addressing:
+   Models on OpenRouter follow a `<provider>/<model-name>` namespace convention
+   (e.g. `anthropic/claude-3.5-sonnet`, `deepseek/deepseek-r1`).
 """
 
 from typing import Dict, List, Optional
@@ -7,9 +24,13 @@ from slproxy.core.plugin_base import Account, BasePlugin, ModelInfo, ProxyReques
 
 
 class OpenRouterPlugin(BasePlugin):
+    """
+    OpenRouter Provider Plugin supporting multi-provider aggregation and attribution headers.
+    """
+
     id: str = "openrouter"
     name: str = "OpenRouter"
-    description: str = "OpenRouter AI model routing and aggregation service"
+    description: str = "OpenRouter AI model routing and aggregation service with attribution headers"
     version: str = "1.0.0"
     author: str = "SLProxy"
     icon: str = "globe"
@@ -75,12 +96,18 @@ class OpenRouterPlugin(BasePlugin):
     ]
 
     def build_headers(self, account: Account, stream: bool = True) -> Dict[str, str]:
+        """
+        Builds headers including OpenRouter attribution headers (HTTP-Referer, X-Title).
+        """
         headers = super().build_headers(account, stream)
         headers["HTTP-Referer"] = account.extra_config.get("referer", "https://slproxy.ai")
         headers["X-Title"] = account.extra_config.get("title", "SLProxy")
         return headers
 
     def transform_request(self, request: ProxyRequest, account: Account) -> ProxyRequest:
+        """
+        Ensures HTTP-Referer and X-Title headers are attached.
+        """
         if "HTTP-Referer" not in request.headers:
             request.headers["HTTP-Referer"] = account.extra_config.get("referer", "https://slproxy.ai")
         if "X-Title" not in request.headers:

@@ -1,5 +1,17 @@
 """
 OpenAI Compatible Provider Plugin
+=================================
+
+Educational Reference Implementation for Generic OpenAI-Compatible Endpoints.
+
+Overview & Architectural Rationale
+-----------------------------------
+This plugin provides standard OpenAI API proxying for third-party endpoints,
+self-hosted inference engines (vLLM, Ollama, LocalAI, TGI), and OpenAI-compatible
+gateways (Groq, Together AI, Fireworks, Mistral, Perplexity).
+
+It passes through standard Authorization Bearer tokens and JSON payloads
+without proprietary transforms.
 """
 
 from typing import Dict, List, Optional
@@ -7,9 +19,13 @@ from slproxy.core.plugin_base import Account, BasePlugin, ModelInfo, ProxyReques
 
 
 class OpenAICompatiblePlugin(BasePlugin):
+    """
+    Generic OpenAI Compatible provider plugin.
+    """
+
     id: str = "openai_compatible"
     name: str = "OpenAI Compatible"
-    description: str = "Generic OpenAI-compatible API endpoint proxy"
+    description: str = "Generic OpenAI-compatible API endpoint proxy supporting custom self-hosted or cloud inference"
     version: str = "1.0.0"
     author: str = "SLProxy"
     icon: str = "cpu"
