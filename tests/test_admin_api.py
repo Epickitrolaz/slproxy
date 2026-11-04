@@ -31,9 +31,12 @@ class SampleProviderPlugin(BasePlugin):
     name = "Sample Provider"
     default_base_url = "https://sample.provider"
     format = "openai"
-    models = [
-        ModelInfo(id="sample-model", name="Sample Model")
-    ]
+
+    def __init__(self):
+        super().__init__()
+        self.models = [
+            ModelInfo(id="sample-model", name="Sample Model")
+        ]
 
 
 @pytest_asyncio.fixture(loop_scope="function")
@@ -70,6 +73,7 @@ async def setup_admin_app(tmp_path: Path):
             "pm": pm,
             "metrics": metrics,
             "plugins_dir": plugins_dir,
+            "proxy_engine": proxy_engine,
         }
 
     await db.close()
@@ -375,3 +379,198 @@ async def test_templates_and_plugin_deletion(setup_admin_app):
     # Verify plugin is removed
     plugins_resp_after = await client.get("/api/plugins")
     assert not any(p["id"] == "openai_compatible" for p in plugins_resp_after.json())
+
+
+async def test_plugin_models_add_and_delete(setup_admin_app):
+    client = setup_admin_app["client"]
+    pm = setup_admin_app["pm"]
+    db = setup_admin_app["db"]
+
+    # 1. Add model to sampleplugin
+    model_payload = {
+        "id": "sample-pro-model",
+        "name": "Sample Pro Model",
+        "context_window": 128000,
+        "max_output_tokens": 8192,
+        "supports_streaming": True,
+        "supports_tools": True,
+        "supports_vision": True,
+        "pricing": {"prompt": 0.005, "completion": 0.015},
+    }
+
+    add_resp = await client.post("/api/plugins/sampleplugin/models", json=model_payload)
+    assert add_resp.status_code == 200
+    add_data = add_resp.json()
+    assert add_data["status"] == "added"
+    assert add_data["model"]["id"] == "sample-pro-model"
+    assert add_data["model"]["name"] == "Sample Pro Model"
+    assert add_data["model"]["context_window"] == 128000
+    assert add_data["model"]["supports_vision"] is True
+
+    # Verify in live plugin instance
+    sample_plugin = pm.plugins["sampleplugin"]
+    assert any(m.id == "sample-pro-model" for m in sample_plugin.models)
+
+    # Verify in GET /api/plugins
+    plugins_resp = await client.get("/api/plugins")
+    assert plugins_resp.status_code == 200
+    tp = next(p for p in plugins_resp.json() if p["id"] == "sampleplugin")
+    model_ids = [m["id"] for m in tp["models"]]
+    assert "sample-pro-model" in model_ids
+
+    # 2. Add model to non-existent plugin returns 404
+    bad_add_resp = await client.post("/api/plugins/nonexistent/models", json=model_payload)
+    assert bad_add_resp.status_code == 404
+
+    # 3. Delete model from sampleplugin
+    del_resp = await client.delete("/api/plugins/sampleplugin/models/sample-pro-model")
+    assert del_resp.status_code == 200
+    assert del_resp.json() == {"status": "removed", "model_id": "sample-pro-model"}
+
+    # Verify removed from live plugin instance
+    assert not any(m.id == "sample-pro-model" for m in sample_plugin.models)
+
+    # Verify in GET /api/plugins
+    plugins_resp_after = await client.get("/api/plugins")
+    tp_after = next(p for p in plugins_resp_after.json() if p["id"] == "sampleplugin")
+    model_ids_after = [m["id"] for m in tp_after["models"]]
+    assert "sample-pro-model" not in model_ids_after
+
+    # 4. Delete non-existent model returns 404
+    bad_del_resp = await client.delete("/api/plugins/sampleplugin/models/already-deleted-model")
+    assert bad_del_resp.status_code == 404
+
+    # 5. Delete model from non-existent plugin returns 404
+    bad_del_plugin_resp = await client.delete("/api/plugins/nonexistent/models/some-model")
+    assert bad_del_plugin_resp.status_code == 404
+
+
+async def test_account_level_model_overrides_in_router(setup_admin_app):
+    client = setup_admin_app["client"]
+    db = setup_admin_app["db"]
+
+    # Insert an account with custom model overrides
+    account_payload = {
+        "provider_id": "sampleplugin",
+        "name": "Account With Models",
+        "api_key": "sk-override-123",
+        "extra_config": {
+            "models": [
+                {"id": "account-override-model", "name": "Account Override Model"},
+                "account-string-model",
+            ]
+        },
+    }
+    resp = await client.post("/api/accounts", json=account_payload)
+    assert resp.status_code == 201
+
+    # Verify GET /routerapi/v1/models includes the account-level overridden models
+    models_resp = await client.get("/routerapi/v1/models")
+    assert models_resp.status_code == 200
+    models_data = models_resp.json()["data"]
+    model_ids = {m["id"] for m in models_data}
+    assert "account-override-model" in model_ids
+    assert "account-string-model" in model_ids
+    assert "sampleplugin/account-override-model" in model_ids
+
+
+async def test_plugin_models_persistence_across_reload(setup_admin_app):
+    client = setup_admin_app["client"]
+    pm = setup_admin_app["pm"]
+    db = setup_admin_app["db"]
+
+    # 1. Add model via Admin API
+    payload = {
+        "id": "persisted-restart-model",
+        "name": "Persisted Restart Model",
+        "context_window": 64000,
+    }
+    add_resp = await client.post("/api/plugins/sampleplugin/models", json=payload)
+    assert add_resp.status_code == 200
+
+    # 2. Simulate server restart: reset in-memory plugin to initial models
+    fresh_plugin = SampleProviderPlugin()
+    assert not any(m.id == "persisted-restart-model" for m in fresh_plugin.models)
+    pm.plugins["sampleplugin"] = fresh_plugin
+
+    # 3. Verify router API restores persisted models from SQLite
+    models_resp = await client.get("/routerapi/v1/models")
+    assert models_resp.status_code == 200
+    model_ids = {m["id"] for m in models_resp.json()["data"]}
+    assert "persisted-restart-model" in model_ids
+
+    # 4. Verify admin API also reflects persisted models
+    plugins_resp = await client.get("/api/plugins")
+    assert plugins_resp.status_code == 200
+    sample_p = next(p for p in plugins_resp.json() if p["id"] == "sampleplugin")
+    assert any(m["id"] == "persisted-restart-model" for m in sample_p["models"])
+
+
+async def test_account_level_model_overrides_priority_filtering(setup_admin_app):
+    from slproxy.api.router_api import filter_accounts_for_model
+    pm = setup_admin_app["pm"]
+    client = setup_admin_app["client"]
+    db = setup_admin_app["db"]
+
+    plugin = pm.plugins["sampleplugin"]
+
+    # Acc 1: Priority 1 (higher priority), default models (no overrides)
+    acc1_payload = {
+        "provider_id": "sampleplugin",
+        "name": "Default Priority 1",
+        "api_key": "sk-acc1",
+        "priority": 1,
+        "extra_config": {},
+    }
+    resp1 = await client.post("/api/accounts", json=acc1_payload)
+    assert resp1.status_code == 201
+    acc1_id = resp1.json()["id"]
+
+    # Acc 2: Priority 2 (lower priority), custom overridden model
+    acc2_payload = {
+        "provider_id": "sampleplugin",
+        "name": "Special Priority 2",
+        "api_key": "sk-acc2",
+        "priority": 2,
+        "extra_config": {"models": ["special-exclusive-model"]},
+    }
+    resp2 = await client.post("/api/accounts", json=acc2_payload)
+    assert resp2.status_code == 201
+    acc2_id = resp2.json()["id"]
+
+    accounts = await db.list_accounts("sampleplugin")
+    assert len(accounts) >= 2
+
+    # Verify filter_accounts_for_model routes special-exclusive-model strictly to Acc 2
+    filtered_special = filter_accounts_for_model(plugin, accounts, "special-exclusive-model")
+    assert len(filtered_special) == 1
+    assert filtered_special[0].id == acc2_id
+
+    # Verify default plugin model routes strictly to Acc 1
+    filtered_default = filter_accounts_for_model(plugin, accounts, "sample-model")
+    assert any(a.id == acc1_id for a in filtered_default)
+    assert not any(a.id == acc2_id for a in filtered_default)
+
+    # Verify chat completion with special-exclusive-model successfully resolves and executes strictly via Acc 2
+    from slproxy.core.plugin_base import ProxyResponse
+    routed_accounts = []
+    async def mock_execute(plugin_arg, account_arg, req_arg):
+        routed_accounts.append(account_arg.id)
+        return ProxyResponse(
+            status_code=200,
+            headers={"content-type": "application/json"},
+            body={"id": "chatcmpl-test", "choices": [{"message": {"role": "assistant", "content": "Hello"}}]},
+        )
+    setup_admin_app["proxy_engine"].execute_request = mock_execute
+
+    chat_resp = await client.post(
+        "/routerapi/v1/chat/completions",
+        json={
+            "model": "special-exclusive-model",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "stream": False,
+        },
+    )
+    assert chat_resp.status_code == 200
+    assert "choices" in chat_resp.json()
+    assert routed_accounts == [acc2_id]

@@ -155,6 +155,7 @@ async def get_current_api_key(
 def resolve_plugin_and_model(
     plugin_manager: Optional[PluginManager],
     requested_model: str,
+    accounts: Optional[List[Account]] = None,
 ) -> Tuple[Optional[BasePlugin], str]:
     if not plugin_manager:
         return None, requested_model
@@ -173,26 +174,127 @@ def resolve_plugin_and_model(
             if p.id.lower() == prefix.lower():
                 return p, stripped
 
-    # 2. Exact match in plugin.models
+    # 2. Exact match in plugin models
     for p in enabled_plugins:
-        models = p.models or []
+        models = p.fetch_models() if hasattr(p, "fetch_models") else (p.models or [])
         for m in models:
             m_id = m.id if hasattr(m, "id") else (m.get("id") if isinstance(m, dict) else str(m))
             if m_id == requested_model:
                 return p, requested_model
 
-    # 3. Model starts with plugin id prefix e.g. "anthropic-claude-..."
+    # 3. Check account-level model overrides if accounts provided
+    if accounts:
+        for p in enabled_plugins:
+            p_accounts = [a for a in accounts if a.provider_id == p.id]
+            for acc in p_accounts:
+                try:
+                    acc_models = p.fetch_models(acc) if hasattr(p, "fetch_models") else []
+                except Exception:
+                    acc_models = []
+                for m in acc_models:
+                    m_id = m.id if hasattr(m, "id") else (m.get("id") if isinstance(m, dict) else str(m))
+                    if m_id == requested_model:
+                        return p, requested_model
+
+    # 4. Model starts with plugin id prefix e.g. "anthropic-claude-..."
     for p in enabled_plugins:
         if requested_model.lower().startswith(p.id.lower() + "-"):
             return p, requested_model
 
-    # 4. Fallback to default plugin if named "default"
+    # 5. Fallback to default plugin if named "default"
     for p in enabled_plugins:
         if p.id.lower() == "default":
             return p, requested_model
 
-    # 5. First enabled plugin
+    # 6. First enabled plugin
     return enabled_plugins[0], requested_model
+
+
+def filter_accounts_for_model(
+    plugin: BasePlugin,
+    accounts: List[Account],
+    requested_model: str,
+) -> List[Account]:
+    """
+    Filters accounts respecting account-level model overrides via plugin.fetch_models(account).
+    If an account specifies a custom models list, it only qualifies if the requested model
+    is in plugin.fetch_models(account). Exact matching accounts are prioritized over general accounts.
+    """
+    exact_match = []
+    default_accounts = []
+    for acc in accounts:
+        try:
+            acc_models = plugin.fetch_models(acc) if hasattr(plugin, "fetch_models") else plugin.models
+        except Exception:
+            acc_models = plugin.models
+        model_ids = {
+            m.id if hasattr(m, "id") else (m.get("id") if isinstance(m, dict) else str(m))
+            for m in (acc_models or [])
+        }
+        if requested_model in model_ids:
+            exact_match.append(acc)
+        elif not (acc.extra_config and "models" in acc.extra_config):
+            default_accounts.append(acc)
+
+    if exact_match:
+        return exact_match
+    if default_accounts:
+        return default_accounts
+    return accounts
+
+
+async def sync_plugin_models_from_db(db: Optional[Database], pm: Optional[PluginManager]):
+    """
+    Synchronizes persisted plugin models from SQLite plugin_settings into the in-memory PluginManager.
+    """
+    if not db or not pm:
+        return
+    try:
+        async with db.conn.execute("SELECT plugin_id, models FROM plugin_settings WHERE models IS NOT NULL") as cur:
+            for row in await cur.fetchall():
+                p_id = row["plugin_id"]
+                if p_id in pm.plugins and row["models"]:
+                    try:
+                        persisted = [ModelInfo(**item) for item in json.loads(row["models"])]
+                        if persisted:
+                            pm.plugins[p_id].models = persisted
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+
+async def get_all_active_accounts(db: Optional[Database]) -> List[Account]:
+    if not db:
+        return []
+    accounts: List[Account] = []
+    try:
+        async with db.conn.execute("SELECT * FROM accounts WHERE is_active = 1 ORDER BY priority ASC, id ASC") as cursor:
+            rows = await cursor.fetchall()
+            for r in rows:
+                extra_headers = json.loads(r["extra_headers"]) if r["extra_headers"] else {}
+                extra_config = json.loads(r["extra_config"]) if r["extra_config"] else {}
+                accounts.append(
+                    Account(
+                        id=r["id"],
+                        provider_id=r["provider_id"],
+                        name=r["name"],
+                        api_key=r["api_key"] or "",
+                        base_url=r["base_url"],
+                        extra_headers=extra_headers,
+                        extra_config=extra_config,
+                        priority=r["priority"] or 1,
+                        weight=r["weight"] or 1,
+                        is_active=bool(r["is_active"]),
+                        rate_limited_until=r["rate_limited_until"],
+                        error_count=r["error_count"] or 0,
+                        success_count=r["success_count"] or 0,
+                        last_used_at=r["last_used_at"],
+                    )
+                )
+    except Exception:
+        pass
+    return accounts
 
 
 async def get_active_accounts_for_provider(db: Optional[Database], provider_id: str) -> List[Account]:
@@ -511,19 +613,33 @@ async def list_models(
 ):
     """
     Aggregates all models from all enabled plugins in OpenAI format.
+    Supports account-level model overrides via plugin.fetch_models(account).
     """
     pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
+    db: Optional[Database] = getattr(request.app.state, "db", None)
     models_data: List[Dict[str, Any]] = []
     seen_ids = set()
 
     if pm:
+        await sync_plugin_models_from_db(db, pm)
         for plugin in pm.list_plugins():
             if not getattr(plugin, "enabled", True):
                 continue
             if api_key and api_key.allowed_plugins and plugin.id not in api_key.allowed_plugins:
                 continue
 
-            plugin_models = plugin.fetch_models() if hasattr(plugin, "fetch_models") else plugin.models
+            plugin_models = list(plugin.fetch_models() if hasattr(plugin, "fetch_models") else plugin.models)
+
+            # Support account-level model overrides
+            accounts = await get_active_accounts_for_provider(db, plugin.id)
+            for acc in accounts:
+                if hasattr(plugin, "fetch_models"):
+                    acc_models = plugin.fetch_models(acc)
+                    for am in acc_models:
+                        am_id = am.id if hasattr(am, "id") else (am.get("id") if isinstance(am, dict) else str(am))
+                        if not any((m.id if hasattr(m, "id") else (m.get("id") if isinstance(m, dict) else str(m))) == am_id for m in plugin_models):
+                            plugin_models.append(am)
+
             for m in plugin_models:
                 m_id = m.id if hasattr(m, "id") else (m.get("id") if isinstance(m, dict) else str(m))
                 if api_key and api_key.allowed_models and m_id not in api_key.allowed_models:
@@ -583,8 +699,10 @@ async def chat_completions(
     account_router: Optional[AccountRouter] = getattr(request.app.state, "account_router", None)
     proxy_engine: Optional[ProxyEngine] = getattr(request.app.state, "proxy_engine", None)
 
-    # 1. Resolve plugin and upstream model name
-    plugin, upstream_model = resolve_plugin_and_model(pm, requested_model)
+    # 1. Resolve plugin and upstream model name (checking account overrides)
+    await sync_plugin_models_from_db(db, pm)
+    all_accounts = await get_all_active_accounts(db)
+    plugin, upstream_model = resolve_plugin_and_model(pm, requested_model, accounts=all_accounts)
     if not plugin:
         return JSONResponse(
             status_code=503,
@@ -608,12 +726,14 @@ async def chat_completions(
             content={"error": {"message": f"No active accounts configured for provider '{plugin.id}'", "type": "service_unavailable", "code": 503}},
         )
 
+    # Filter candidate accounts respecting account-level model overrides
+    candidate_accounts = filter_accounts_for_model(plugin, accounts, upstream_model)
+
     # Prepare payload with upstream model
     upstream_body = dict(body)
     upstream_body["model"] = upstream_model
 
     # 3. Transparent account retry loop
-    candidate_accounts = list(accounts)
     last_error_resp: Optional[Response] = None
 
     while candidate_accounts:
@@ -960,7 +1080,9 @@ async def anthropic_messages(
     account_router: Optional[AccountRouter] = getattr(request.app.state, "account_router", None)
     proxy_engine: Optional[ProxyEngine] = getattr(request.app.state, "proxy_engine", None)
 
-    plugin, upstream_model = resolve_plugin_and_model(pm, requested_model)
+    await sync_plugin_models_from_db(db, pm)
+    all_accounts = await get_all_active_accounts(db)
+    plugin, upstream_model = resolve_plugin_and_model(pm, requested_model, accounts=all_accounts)
     if not plugin:
         return JSONResponse(
             status_code=503,
@@ -983,7 +1105,7 @@ async def anthropic_messages(
         )
 
     is_anthropic_plugin = (getattr(plugin, "format", "openai") == "anthropic")
-    candidate_accounts = list(accounts)
+    candidate_accounts = filter_accounts_for_model(plugin, accounts, upstream_model)
 
     while candidate_accounts:
         selected_account = select_account(account_router, candidate_accounts)
@@ -1191,7 +1313,9 @@ async def embeddings(
     account_router: Optional[AccountRouter] = getattr(request.app.state, "account_router", None)
     proxy_engine: Optional[ProxyEngine] = getattr(request.app.state, "proxy_engine", None)
 
-    plugin, upstream_model = resolve_plugin_and_model(pm, requested_model)
+    await sync_plugin_models_from_db(db, pm)
+    all_accounts = await get_all_active_accounts(db)
+    plugin, upstream_model = resolve_plugin_and_model(pm, requested_model, accounts=all_accounts)
     if not plugin:
         return JSONResponse(
             status_code=503,
@@ -1213,7 +1337,7 @@ async def embeddings(
             content={"error": {"message": f"No active accounts configured for provider '{plugin.id}'", "type": "service_unavailable", "code": 503}},
         )
 
-    candidate_accounts = list(accounts)
+    candidate_accounts = filter_accounts_for_model(plugin, accounts, upstream_model)
     upstream_body = dict(body)
     upstream_body["model"] = upstream_model
 

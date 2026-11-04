@@ -4,6 +4,8 @@ Verifies headers, request transformations, model catalogs, and custom error/quot
 """
 
 import sys
+import time
+import uuid
 from pathlib import Path
 
 # Ensure project root is on sys.path
@@ -11,16 +13,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 
-from slproxy.core.plugin_base import Account, ProxyRequest, ProxyResponse
-from slproxy.templates.plugins.google_antigravity import GoogleAntigravityPlugin
-from slproxy.templates.plugins.openai_codex import OpenAICodexPlugin
-from slproxy.templates.plugins.anthropic_claude import AnthropicClaudePlugin
-from slproxy.templates.plugins.openrouter import OpenRouterPlugin
-from slproxy.templates.plugins.opencode import OpenCodePlugin
+from slproxy.core.plugin_base import Account, ModelInfo, ProxyRequest, ProxyResponse
 from slproxy.templates.plugins.agentrouter import AgentRouterPlugin
-from slproxy.templates.plugins.moonmath_zro import MoonmathZroPlugin
-from slproxy.templates.plugins.openai_compatible import OpenAICompatiblePlugin
+from slproxy.templates.plugins.anthropic_claude import AnthropicClaudePlugin
 from slproxy.templates.plugins.anthropic_compatible import AnthropicCompatiblePlugin
+from slproxy.templates.plugins.google_antigravity import GoogleAntigravityPlugin
+from slproxy.templates.plugins.moonmath_zro import MoonmathZroPlugin
+from slproxy.templates.plugins.openai_codex import OpenAICodexPlugin
+from slproxy.templates.plugins.openai_compatible import OpenAICompatiblePlugin
+from slproxy.templates.plugins.opencode import OpenCodePlugin
+from slproxy.templates.plugins.openrouter import OpenRouterPlugin
 
 
 # 1. Google Antigravity
@@ -39,31 +41,70 @@ def test_google_antigravity():
 
     account = Account(id="acc_g", provider_id="google_antigravity", name="GTest", api_key="test-key")
 
-    # Header generation contains trajectory and IDE request IDs
+    # Header generation contains 9Router trajectory, request IDs, and client markers
     headers = plugin.build_headers(account)
+    assert headers["User-Agent"] == "Antigravity-IDE/1.0"
+    assert headers["Authorization"] == "Bearer test-key"
+    assert headers["x-goog-api-client"] == "ide/antigravity"
     assert "x-trajectory-id" in headers
     assert "x-ide-request-id" in headers
-    assert headers["x-trajectory-id"].startswith("traj_")
-    assert headers["x-ide-request-id"].startswith("ide_req_")
+    assert "x-request-id" in headers
 
-    # Request transformation strips disallowed fields and injects missing IDs
+    # Verify 9Router trajectory ID format: agent/<conversation_id>/<timestamp>/<trajectory_id>/<step>
+    traj_id = headers["x-trajectory-id"]
+    parts = traj_id.split("/")
+    assert len(parts) == 5
+    assert parts[0] == "agent"
+    uuid.UUID(parts[1])  # Valid conversation UUID derived from seed
+    assert int(parts[2]) > 0  # Valid timestamp integer
+    uuid.UUID(parts[3])  # Valid trajectory UUID derived from seed
+    assert parts[4] == "1"  # Step counter
+
+    assert headers["x-ide-request-id"].startswith("ide_req_")
+    assert headers["x-request-id"] == headers["x-ide-request-id"]
+
+    # Request transformation strips all Google-rejected parameters and injects missing telemetry
     req = ProxyRequest(
         url="https://antigravity.google/v1/generate",
         headers={},
         body={
             "prompt": "Hello world",
             "temperature": 0.7,
+            "output_config": {"format": "json"},
+            "thinking": {"enabled": True},
+            "reasoning_effort": "high",
+            "reasoning": "enabled",
+            "enable_thinking": True,
+            "thinking_budget": 2048,
+            "thinkingConfig": {"thinkingBudget": 2048},
             "frequency_penalty": 0.5,
             "presence_penalty": 0.2,
             "disallowed_field": "remove_me",
         },
     )
     transformed = plugin.transform_request(req, account)
-    assert "x-trajectory-id" in transformed.headers
-    assert "x-ide-request-id" in transformed.headers
-    assert "frequency_penalty" not in transformed.body
-    assert "presence_penalty" not in transformed.body
-    assert "disallowed_field" not in transformed.body
+    assert transformed.headers["User-Agent"] == "Antigravity-IDE/1.0"
+    assert transformed.headers["x-goog-api-client"] == "ide/antigravity"
+    assert transformed.headers["Authorization"] == "Bearer test-key"
+    assert transformed.headers["x-trajectory-id"].startswith("agent/")
+    assert transformed.headers["x-ide-request-id"].startswith("ide_req_")
+
+    # Completely stripped fields
+    for rejected in [
+        "output_config",
+        "thinking",
+        "reasoning_effort",
+        "reasoning",
+        "enable_thinking",
+        "thinking_budget",
+        "thinkingConfig",
+        "frequency_penalty",
+        "presence_penalty",
+        "disallowed_field",
+    ]:
+        assert rejected not in transformed.body
+
+    # Retained valid fields
     assert transformed.body["prompt"] == "Hello world"
     assert transformed.body["temperature"] == 0.7
 
@@ -83,6 +124,57 @@ def test_openai_codex():
 
     account = Account(id="acc_codex", provider_id="openai_codex", name="CodexTest", api_key="sk-test")
 
+    # Test explicit conversion of role: system -> role: developer,
+    # stripping of server-generated IDs (rs_, fc_, msg_),
+    # and regex pattern sanitization for function tool schemas
+    req = ProxyRequest(
+        url="https://api.openai.com/v1/chat/completions",
+        body={
+            "model": "codex",
+            "messages": [
+                {"id": "msg_12345", "role": "system", "content": "You are a code assistant."},
+                {"id": "user_normal", "role": "user", "content": "Write code"},
+                {"id": "rs_abc999", "role": "assistant", "content": "Sure", "tool_calls": [
+                    {"id": "fc_call_888", "type": "function", "function": {"name": "run_cmd", "arguments": "{}"}}
+                ]},
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "validate_input",
+                        "description": "Validation tool",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "email": {"type": "string", "pattern": r"(?i)^[a-z0-9]+$"},
+                                "invalid_regex": {"type": "string", "pattern": r"(?<=[a-z"},
+                            },
+                        },
+                    },
+                }
+            ],
+        },
+    )
+
+    transformed = plugin.transform_request(req, account)
+
+    # 1. System -> developer role conversion
+    messages = transformed.body["messages"]
+    assert messages[0]["role"] == "developer"
+    assert messages[1]["role"] == "user"
+
+    # 2. Stripping server-generated item IDs (rs_, fc_, msg_)
+    assert "id" not in messages[0]  # was msg_12345
+    assert messages[1]["id"] == "user_normal"  # user_ is preserved
+    assert "id" not in messages[2]  # was rs_abc999
+    assert "id" not in messages[2]["tool_calls"][0]  # was fc_call_888
+
+    # 3. Regex pattern sanitization
+    tool_params = transformed.body["tools"][0]["function"]["parameters"]["properties"]
+    assert tool_params["email"]["pattern"] == r"^[a-z0-9]+$"  # (?i) stripped
+    assert "pattern" not in tool_params["invalid_regex"]  # invalid regex dropped
+
     # Test tools normalization: legacy functions -> tools
     req_legacy = ProxyRequest(
         url="https://api.openai.com/v1/chat/completions",
@@ -91,11 +183,11 @@ def test_openai_codex():
             "functions": [{"name": "get_weather", "description": "Weather info"}],
         },
     )
-    transformed = plugin.transform_request(req_legacy, account)
-    assert "tools" in transformed.body
-    assert "functions" not in transformed.body
-    assert transformed.body["tools"][0]["type"] == "function"
-    assert transformed.body["tools"][0]["function"]["name"] == "get_weather"
+    transformed_legacy = plugin.transform_request(req_legacy, account)
+    assert "tools" in transformed_legacy.body
+    assert "functions" not in transformed_legacy.body
+    assert transformed_legacy.body["tools"][0]["type"] == "function"
+    assert transformed_legacy.body["tools"][0]["function"]["name"] == "get_weather"
 
     # Test tool_choice string normalization
     req_choice = ProxyRequest(
@@ -146,14 +238,21 @@ def test_anthropic_claude():
 
     account = Account(id="acc_claude", provider_id="anthropic_claude", name="ClaudeTest", api_key="sk-ant-test")
 
-    # Injects CLAUDE_CLI_SPOOF_HEADERS and Anthropic-Beta
+    # Injects full Stainless SDK spoofing headers
     headers = plugin.build_headers(account)
     assert headers["x-api-key"] == "sk-ant-test"
-    assert headers["anthropic-version"] == "2023-06-01"
-    assert headers["User-Agent"] == "claude-cli/1.0.0 (darwin-arm64) claude-code"
-    assert headers["anthropic-client"] == "claude-code"
-    assert "anthropic-beta" in headers
-    assert "prompt-caching-2024-07-31" in headers["anthropic-beta"]
+    assert headers["User-Agent"] == "claude-cli/2.1.280 (external, sdk-cli)"
+    assert headers["Anthropic-Version"] == "2023-06-01"
+    assert headers["Anthropic-Beta"] == (
+        "claude-code-20250219,"
+        "interleaved-thinking-2025-05-14,"
+        "context-management-2025-06-27,"
+        "prompt-caching-scope-2026-01-05"
+    )
+    assert headers["X-App"] == "cli"
+    assert headers["X-Stainless-Runtime-Version"] == "v24.14.0"
+    assert headers["X-Stainless-Arch"] == "arm64"
+    assert headers["X-Stainless-Os"] == "macOS"
 
     # transform_request also injects spoof headers and rewrites base url
     req = ProxyRequest(
@@ -163,8 +262,10 @@ def test_anthropic_claude():
     )
     transformed = plugin.transform_request(req, account)
     assert transformed.url == "https://api.anthropic.com/v1/messages"
-    assert transformed.headers["User-Agent"] == "claude-cli/1.0.0 (darwin-arm64) claude-code"
-    assert "anthropic-beta" in transformed.headers
+    assert transformed.headers["User-Agent"] == "claude-cli/2.1.280 (external, sdk-cli)"
+    assert transformed.headers["Anthropic-Beta"] == headers["Anthropic-Beta"]
+    assert transformed.headers["X-App"] == "cli"
+    assert transformed.headers["X-Stainless-Runtime-Version"] == "v24.14.0"
 
 
 # 4. OpenRouter
@@ -213,10 +314,31 @@ def test_opencode():
 
     account = Account(id="acc_opencode", provider_id="opencode", name="OCTest", api_key="sk-oc-test")
 
-    # Injects User-Agent and x-opencode-session
+    # Injects User-Agent and exact 9Router descending-time session ID
     headers = plugin.build_headers(account)
     assert headers["User-Agent"] == "opencode/latest/2.0.26/cli"
-    assert headers["x-opencode-session"].startswith("ses_")
+    session_id = headers["x-opencode-session"]
+    assert session_id.startswith("ses_")
+
+    # Verify descending time prefix algorithm:
+    # ses_<descending_time_hex><random14>
+    # descending_time_hex = (~(int(time_ms) * 0x1000 + counter) & 0xFFFFFFFFFFFF).to_bytes(6, 'big').hex()
+    descending_hex = session_id[4:16]
+    assert len(descending_hex) == 12
+    suffix = session_id[16:]
+    assert len(suffix) == 14
+
+    # Recover timestamp from inverted 48 bits
+    inverted_val = int(descending_hex, 16)
+    recovered_packed = (~inverted_val) & 0xFFFFFFFFFFFF
+    recovered_time_ms = recovered_packed // 0x1000
+    recovered_counter = recovered_packed & 0x0FFF
+
+    now_ms = int(time.time() * 1000)
+    # 48 bits total = 36 bits timestamp + 12 bits counter
+    expected_time_36 = now_ms & 0xFFFFFFFFF
+    assert abs(expected_time_36 - recovered_time_ms) < 5000  # Within 5 seconds of generation
+    assert recovered_counter < 10  # Counter is small
 
     req = ProxyRequest(url="https://api.opencode.ai/v1/chat/completions", headers={})
     transformed = plugin.transform_request(req, account)
@@ -239,7 +361,7 @@ def test_agentrouter():
 
     account = Account(id="acc_ar", provider_id="agentrouter", name="ARTest", api_key="sk-ar-test")
 
-    # Verifies specifically injecting OpenCode client headers to bypass client restriction
+    # Verifies transparent OpenCode client header injection to bypass client restrictions
     headers = plugin.build_headers(account)
     assert headers["User-Agent"] == "opencode/latest/2.0.26/cli"
     assert headers["x-opencode-session"].startswith("ses_")
@@ -262,8 +384,8 @@ def test_moonmath_zro_quota_and_limit_detection():
     assert "moonmath-zro-v1" in model_ids
     assert "moonmath-zro-pro" in model_ids
 
-    # Case 1: Status 200 OK with "limit reached" in response text
-    res1 = plugin.detect_error_or_limit(200, '{"error": "Account rate limit reached for today"}', {})
+    # Case 1: Status 200 OK with "daily limit reached" in response text
+    res1 = plugin.detect_error_or_limit(200, '{"error": "Account daily limit reached for today"}', {})
     assert res1.is_error is True
     assert res1.is_rate_limited is True
     assert res1.should_fallback is True
@@ -274,27 +396,33 @@ def test_moonmath_zro_quota_and_limit_detection():
     assert res2.is_rate_limited is True
     assert res2.should_fallback is True
 
-    # Case 3: Status 200 OK with "insufficient quota" in response text
-    res3 = plugin.detect_error_or_limit(200, 'insufficient quota available', {})
+    # Case 3: Status 200 OK with "limit was reached" in response text
+    res3 = plugin.detect_error_or_limit(200, 'Your conversational limit was reached for this model', {})
     assert res3.is_error is True
     assert res3.is_rate_limited is True
     assert res3.should_fallback is True
 
-    # Case 4: Status 429 HTTP rate limited
-    res4 = plugin.detect_error_or_limit(429, "Too Many Requests", {"retry-after": "30"})
+    # Case 4: Status 200 OK with "insufficient quota" in response text
+    res4 = plugin.detect_error_or_limit(200, 'insufficient quota available', {})
     assert res4.is_error is True
     assert res4.is_rate_limited is True
     assert res4.should_fallback is True
-    assert res4.cooldown_seconds == 30.0
 
-    # Case 5: Normal successful 200 OK response
-    res5 = plugin.detect_error_or_limit(200, '{"id": "chatcmpl-123", "choices": []}', {})
-    assert res5.is_error is False
-    assert res5.is_rate_limited is False
-    assert res5.should_fallback is False
+    # Case 5: Status 429 HTTP rate limited
+    res5 = plugin.detect_error_or_limit(429, "Too Many Requests", {"retry-after": "30"})
+    assert res5.is_error is True
+    assert res5.is_rate_limited is True
+    assert res5.should_fallback is True
+    assert res5.cooldown_seconds == 30.0
 
-    # Case 6: Stream chunk checking
-    chunk_limit = b'data: {"error": "usage limit exceeded"}\n\n'
+    # Case 6: Normal successful 200 OK response
+    res6 = plugin.detect_error_or_limit(200, '{"id": "chatcmpl-123", "choices": []}', {})
+    assert res6.is_error is False
+    assert res6.is_rate_limited is False
+    assert res6.should_fallback is False
+
+    # Case 7: Stream chunk checking
+    chunk_limit = b'data: {"error": "daily limit reached"}\n\n'
     stream_check = plugin.check_chunk_for_limit(chunk_limit)
     assert stream_check is not None
     assert stream_check.is_rate_limited is True
@@ -392,3 +520,55 @@ def test_plugin_fetch_models_and_custom_base_url():
         )
         assert p.get_base_url(custom_acc) == "https://custom.endpoint.com/v1"
 
+
+def test_plugin_add_and_remove_model():
+    plugin = GoogleAntigravityPlugin()
+    initial_count = len(plugin.models)
+
+    # 1. Add model
+    new_model = ModelInfo(
+        id="gemini-custom-enterprise",
+        name="Gemini Custom Enterprise",
+        context_window=2000000,
+        max_output_tokens=16384,
+        supports_streaming=True,
+        supports_tools=True,
+        supports_vision=True,
+    )
+    added = plugin.add_model(new_model)
+    assert added is True
+    assert len(plugin.models) == initial_count + 1
+    assert any(m.id == "gemini-custom-enterprise" for m in plugin.fetch_models())
+
+    # 2. Update existing model
+    updated_model = ModelInfo(
+        id="gemini-custom-enterprise",
+        name="Gemini Custom Enterprise Updated",
+        context_window=4000000,
+    )
+    plugin.add_model(updated_model)
+    assert len(plugin.models) == initial_count + 1
+    found = next(m for m in plugin.models if m.id == "gemini-custom-enterprise")
+    assert found.name == "Gemini Custom Enterprise Updated"
+    assert found.context_window == 4000000
+
+    # 3. Remove model
+    removed = plugin.remove_model("gemini-custom-enterprise")
+    assert removed is True
+    assert len(plugin.models) == initial_count
+    assert not any(m.id == "gemini-custom-enterprise" for m in plugin.fetch_models())
+
+    # Remove non-existent model returns False
+    assert plugin.remove_model("non-existent-id") is False
+
+    # 4. Account-level model overrides
+    account_with_override = Account(
+        id="acc_custom_models",
+        provider_id="google_antigravity",
+        name="Account With Override",
+        extra_config={"models": ["override-model-1", {"id": "override-model-2", "name": "Override Model 2"}]},
+    )
+    custom_models = plugin.fetch_models(account_with_override)
+    assert len(custom_models) == 2
+    assert custom_models[0].id == "override-model-1"
+    assert custom_models[1].id == "override-model-2"
