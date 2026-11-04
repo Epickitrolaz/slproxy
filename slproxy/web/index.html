@@ -2,14 +2,14 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>SLProxy — AI Model Router &amp; Plugin Engine</title>
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
 
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -21,6 +21,17 @@
           fontFamily: {
             sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+          },
+          fontSize: {
+            '2xs': ['0.75rem', { lineHeight: '1rem' }],      // 12px
+            'xs': ['0.8125rem', { lineHeight: '1.25rem' }],   // 13px
+            'sm': ['0.875rem', { lineHeight: '1.375rem' }],   // 14px
+            'base': ['0.9375rem', { lineHeight: '1.5rem' }],  // 15px
+            'md': ['1rem', { lineHeight: '1.5rem' }],         // 16px
+            'lg': ['1.125rem', { lineHeight: '1.625rem' }],   // 18px
+            'xl': ['1.375rem', { lineHeight: '1.75rem' }],    // 22px
+            '2xl': ['1.75rem', { lineHeight: '2.125rem' }],   // 28px
+            '3xl': ['2.125rem', { lineHeight: '2.5rem' }]     // 34px
           },
           colors: {
             canvas: '#09090b',
@@ -58,95 +69,96 @@
   <div id="toast-container"></div>
 
   <!-- Top Navigation Header -->
-  <header class="border-b border-white/[0.08] bg-[#0d0d10]/95 backdrop-blur-md sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between">
+  <header class="border-b border-white/[0.08] bg-[#0d0d10]/95 backdrop-blur-md sticky top-0 z-40 px-3.5 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-[#141418] border border-white/10 flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)]">
-        <span class="text-white font-bold text-base tracking-tight font-mono">S</span>
+      <div class="w-10 h-10 rounded-xl bg-[#141418] border border-white/10 flex items-center justify-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.15)] shrink-0">
+        <span class="text-white font-bold text-lg tracking-tight font-mono">S</span>
       </div>
       <div>
         <div class="flex items-center gap-2">
-          <span class="font-bold text-base tracking-tight text-white">SLProxy</span>
-          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-white/10">v1.0.0</span>
+          <span class="font-bold text-lg tracking-tight text-white">SLProxy</span>
+          <span class="text-xs font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-white/10">v1.0.0</span>
           <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-medium ml-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot inline-block"></span>
-            <span class="text-[11px] text-zinc-400">Live</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot inline-block"></span>
+            <span class="text-xs text-zinc-400">Live</span>
           </span>
         </div>
-        <p class="text-[11px] text-zinc-500 hidden sm:block">AI Router &amp; Dynamic Python Plugins</p>
+        <p class="text-xs text-zinc-400 hidden sm:block">AI Router &amp; Dynamic Python Plugins</p>
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <nav class="hidden md:flex items-center gap-1 bg-[#09090b] p-1 rounded-xl border border-white/[0.08]">
-      <button data-tab="dashboard" class="nav-tab active flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-100 hover:text-white transition-all">
-        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-zinc-400"></i>
+    <!-- Navigation Tabs (Desktop) -->
+    <nav class="hidden md:flex items-center gap-1 bg-[#09090b] p-1.5 rounded-xl border border-white/[0.08]">
+      <button data-tab="dashboard" class="nav-tab active flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-100 hover:text-white transition-all">
+        <i data-lucide="layout-dashboard" class="w-4 h-4 text-zinc-400"></i>
         <span>Dashboard</span>
       </button>
-      <button data-tab="plugins" class="nav-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all">
-        <i data-lucide="blocks" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <button data-tab="plugins" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-all">
+        <i data-lucide="blocks" class="w-4 h-4 text-zinc-500"></i>
         <span>Plugins &amp; Editor</span>
       </button>
-      <button data-tab="accounts" class="nav-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all">
-        <i data-lucide="users" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <button data-tab="accounts" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-all">
+        <i data-lucide="users" class="w-4 h-4 text-zinc-500"></i>
         <span>Accounts</span>
       </button>
-      <button data-tab="keys" class="nav-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all">
-        <i data-lucide="key" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <button data-tab="keys" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-all">
+        <i data-lucide="key" class="w-4 h-4 text-zinc-500"></i>
         <span>Router Keys</span>
       </button>
-      <button data-tab="logs" class="nav-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all">
-        <i data-lucide="activity" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <button data-tab="logs" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-all">
+        <i data-lucide="activity" class="w-4 h-4 text-zinc-500"></i>
         <span>Live Logs</span>
       </button>
-      <button data-tab="playground" class="nav-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all">
-        <i data-lucide="play" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <button data-tab="playground" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-all">
+        <i data-lucide="play" class="w-4 h-4 text-zinc-500"></i>
         <span>Playground</span>
       </button>
-      <button data-tab="settings" class="nav-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all">
-        <i data-lucide="settings" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <button data-tab="settings" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-all">
+        <i data-lucide="settings" class="w-4 h-4 text-zinc-500"></i>
         <span>Settings</span>
       </button>
     </nav>
 
     <!-- Top Right Actions -->
     <div class="flex items-center gap-2">
-      <!-- Permanent Quick Setup Tour Button -->
-      <button id="btn-nav-tour" class="flex items-center gap-1.5 px-3 py-1.5 bg-[#18181b] hover:bg-[#27272a] text-zinc-200 hover:text-white rounded-lg text-xs font-medium border border-white/10 transition-all shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-        <i data-lucide="compass" class="w-3.5 h-3.5 text-zinc-300"></i>
-        <span>Quick Setup Tour</span>
+      <!-- Quick Setup Tour Button (Responsive icon on mobile, text on desktop) -->
+      <button id="btn-nav-tour" class="flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 bg-[#18181b] hover:bg-[#27272a] text-zinc-200 hover:text-white rounded-lg text-sm font-medium border border-white/10 transition-all shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] min-h-[40px]" title="Quick Setup Tour">
+        <i data-lucide="compass" class="w-4 h-4 text-zinc-300 shrink-0"></i>
+        <span class="hidden md:inline">Quick Setup Tour</span>
+        <span class="hidden sm:inline md:hidden">Tour</span>
       </button>
-      <button id="btn-quick-playground" class="btn-primary px-3 py-1.5 text-xs font-medium">
-        <i data-lucide="terminal" class="w-3.5 h-3.5 mr-1.5"></i>
+      <button id="btn-quick-playground" class="btn-primary px-3 sm:px-4 py-2 text-sm font-medium min-h-[40px]">
+        <i data-lucide="terminal" class="w-4 h-4 mr-0 sm:mr-1.5 shrink-0"></i>
         <span class="hidden sm:inline">Test API</span>
       </button>
-      <button id="btn-refresh-all" title="Refresh metrics and state" class="btn-secondary p-1.5 text-zinc-400 hover:text-white">
+      <button id="btn-refresh-all" title="Refresh metrics and state" class="btn-secondary p-2.5 min-h-[40px] min-w-[40px] text-zinc-400 hover:text-white">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
       </button>
     </div>
   </header>
 
-  <!-- Mobile Tab Navigation Bar -->
-  <div class="md:hidden flex overflow-x-auto gap-1 p-2 bg-[#0d0d10] border-b border-white/[0.08] scrollbar-none">
-    <button data-tab="dashboard" class="nav-tab active flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-200">
-      <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i> Dashboard
+  <!-- Mobile Tab Navigation Bar (Horizontally scrollable pills with 44px min touch targets) -->
+  <div class="md:hidden flex overflow-x-auto gap-1.5 p-2 bg-[#0d0d10] border-b border-white/[0.08] scrollbar-none sticky top-[57px] z-30 touch-pan-x">
+    <button data-tab="dashboard" class="nav-tab active flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-200 min-h-[44px]">
+      <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
     </button>
-    <button data-tab="plugins" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-400">
-      <i data-lucide="blocks" class="w-3.5 h-3.5"></i> Plugins
+    <button data-tab="plugins" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-400 min-h-[44px]">
+      <i data-lucide="blocks" class="w-4 h-4"></i> Plugins
     </button>
-    <button data-tab="accounts" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-400">
-      <i data-lucide="users" class="w-3.5 h-3.5"></i> Accounts
+    <button data-tab="accounts" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-400 min-h-[44px]">
+      <i data-lucide="users" class="w-4 h-4"></i> Accounts
     </button>
-    <button data-tab="keys" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-400">
-      <i data-lucide="key" class="w-3.5 h-3.5"></i> Keys
+    <button data-tab="keys" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-400 min-h-[44px]">
+      <i data-lucide="key" class="w-4 h-4"></i> Keys
     </button>
-    <button data-tab="logs" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-400">
-      <i data-lucide="activity" class="w-3.5 h-3.5"></i> Logs
+    <button data-tab="logs" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-400 min-h-[44px]">
+      <i data-lucide="activity" class="w-4 h-4"></i> Logs
     </button>
-    <button data-tab="playground" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-400">
-      <i data-lucide="play" class="w-3.5 h-3.5"></i> Playground
+    <button data-tab="playground" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-400 min-h-[44px]">
+      <i data-lucide="play" class="w-4 h-4"></i> Playground
     </button>
-    <button data-tab="settings" class="nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-zinc-400">
-      <i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings
+    <button data-tab="settings" class="nav-tab flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap text-zinc-400 min-h-[44px]">
+      <i data-lucide="settings" class="w-4 h-4"></i> Settings
     </button>
   </div>
 
@@ -159,68 +171,68 @@
     <section id="tab-dashboard" class="tab-content space-y-6">
 
       <!-- Top Metrics Banner (Calm Monochrome Obsidian Cards) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
         <!-- Total Requests -->
-        <div class="glass-panel p-4 rounded-xl relative">
+        <div class="glass-panel p-5 rounded-xl relative">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-zinc-400">Total Requests</span>
+            <span class="text-sm font-medium text-zinc-400">Total Requests</span>
             <span class="p-1.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/[0.08]">
-              <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+              <i data-lucide="zap" class="w-4 h-4"></i>
             </span>
           </div>
-          <div class="text-2xl font-semibold tracking-tight text-white font-mono-tnum" id="stat-total-requests">0</div>
-          <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-1 font-mono">
+          <div class="text-2xl font-bold tracking-tight text-white font-mono-tnum" id="stat-total-requests">0</div>
+          <div class="text-xs text-zinc-400 flex items-center gap-1 mt-1 font-mono">
             <span id="stat-req-sub">0 routed requests</span>
           </div>
         </div>
 
         <!-- Success Rate -->
-        <div class="glass-panel p-4 rounded-xl relative">
+        <div class="glass-panel p-5 rounded-xl relative">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-zinc-400">Success Rate</span>
+            <span class="text-sm font-medium text-zinc-400">Success Rate</span>
             <span class="p-1.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/[0.08]">
-              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
             </span>
           </div>
-          <div class="text-2xl font-semibold tracking-tight text-white font-mono-tnum" id="stat-success-rate">100.0%</div>
-          <div class="text-[11px] text-zinc-500 mt-1 font-mono" id="stat-err-sub">0 errors recorded</div>
+          <div class="text-2xl font-bold tracking-tight text-white font-mono-tnum" id="stat-success-rate">100.0%</div>
+          <div class="text-xs text-zinc-400 mt-1 font-mono" id="stat-err-sub">0 errors recorded</div>
         </div>
 
         <!-- Total Tokens -->
-        <div class="glass-panel p-4 rounded-xl relative">
+        <div class="glass-panel p-5 rounded-xl relative">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-zinc-400">Total Tokens</span>
+            <span class="text-sm font-medium text-zinc-400">Total Tokens</span>
             <span class="p-1.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/[0.08]">
-              <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+              <i data-lucide="cpu" class="w-4 h-4"></i>
             </span>
           </div>
-          <div class="text-2xl font-semibold tracking-tight text-white font-mono-tnum" id="stat-total-tokens">0</div>
-          <div class="text-[11px] text-zinc-500 mt-1 font-mono">Prompt &amp; Completion</div>
+          <div class="text-2xl font-bold tracking-tight text-white font-mono-tnum" id="stat-total-tokens">0</div>
+          <div class="text-xs text-zinc-400 mt-1 font-mono">Prompt &amp; Completion</div>
         </div>
 
         <!-- Active Providers -->
-        <div class="glass-panel p-4 rounded-xl relative">
+        <div class="glass-panel p-5 rounded-xl relative">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-zinc-400">Active Providers</span>
+            <span class="text-sm font-medium text-zinc-400">Active Providers</span>
             <span class="p-1.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/[0.08]">
-              <i data-lucide="server" class="w-3.5 h-3.5"></i>
+              <i data-lucide="server" class="w-4 h-4"></i>
             </span>
           </div>
-          <div class="text-2xl font-semibold tracking-tight text-white font-mono-tnum" id="stat-active-providers">0 / 0</div>
-          <div class="text-[11px] text-zinc-500 mt-1 font-mono" id="stat-accounts-sub">0 accounts configured</div>
+          <div class="text-2xl font-bold tracking-tight text-white font-mono-tnum" id="stat-active-providers">0 / 0</div>
+          <div class="text-xs text-zinc-400 mt-1 font-mono" id="stat-accounts-sub">0 accounts configured</div>
         </div>
 
         <!-- Average Latency -->
-        <div class="glass-panel p-4 rounded-xl relative">
+        <div class="glass-panel p-5 rounded-xl relative">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-zinc-400">Avg Latency</span>
+            <span class="text-sm font-medium text-zinc-400">Avg Latency</span>
             <span class="p-1.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/[0.08]">
-              <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+              <i data-lucide="clock" class="w-4 h-4"></i>
             </span>
           </div>
-          <div class="text-2xl font-semibold tracking-tight text-white font-mono-tnum" id="stat-avg-latency">0 ms</div>
-          <div class="text-[11px] text-zinc-500 mt-1 font-mono">Telemetry response time</div>
+          <div class="text-2xl font-bold tracking-tight text-white font-mono-tnum" id="stat-avg-latency">0 ms</div>
+          <div class="text-xs text-zinc-400 mt-1 font-mono">Telemetry response time</div>
         </div>
 
       </div>
@@ -228,38 +240,38 @@
       <!-- Provider Status Section -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-            <i data-lucide="layers" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-zinc-500"></i>
             <span>Provider Status &amp; Overview</span>
           </h3>
-          <span class="text-[11px] text-zinc-500 font-mono">Live health state</span>
+          <span class="text-xs text-zinc-400 font-mono">Live health state</span>
         </div>
 
-        <!-- Clean Zero-Provider Default State (Displayed when 0 providers installed) -->
+        <!-- Clean Zero-Provider Default State -->
         <div id="dashboard-empty-state" class="glass-panel p-8 sm:p-10 rounded-xl text-center space-y-4">
-          <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto text-zinc-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]">
-            <i data-lucide="blocks" class="w-6 h-6"></i>
+          <div class="w-14 h-14 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto text-zinc-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]">
+            <i data-lucide="blocks" class="w-7 h-7"></i>
           </div>
-          <div class="space-y-1.5 max-w-md mx-auto">
-            <h4 class="text-base font-semibold text-zinc-100">No AI Providers Connected</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-2 max-w-md mx-auto">
+            <h4 class="text-lg font-bold text-zinc-100">No AI Providers Connected</h4>
+            <p class="text-sm text-zinc-400 leading-relaxed">
               SLProxy is running with a clean slate. Connect your first provider using a reference template or write a custom Python plugin.
             </p>
           </div>
           <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button class="btn-browse-templates-trigger btn-primary px-4 py-2 text-xs font-medium">
-              <i data-lucide="download-cloud" class="w-3.5 h-3.5 mr-1.5"></i>
+            <button class="btn-browse-templates-trigger btn-primary px-4 py-2.5 text-sm font-medium min-h-[44px]">
+              <i data-lucide="download-cloud" class="w-4 h-4 mr-2"></i>
               <span>Browse Templates</span>
             </button>
-            <button class="btn-create-plugin-trigger btn-secondary px-4 py-2 text-xs font-medium">
-              <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i>
+            <button class="btn-create-plugin-trigger btn-secondary px-4 py-2.5 text-sm font-medium min-h-[44px]">
+              <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
               <span>+ Code Custom Plugin</span>
             </button>
           </div>
         </div>
 
         <!-- Populated Grid when providers are installed -->
-        <div id="dashboard-provider-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 hidden">
+        <div id="dashboard-provider-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden">
           <!-- Populated by JS -->
         </div>
       </div>
@@ -269,11 +281,11 @@
         <!-- Latency Chart / Telemetry -->
         <div class="glass-panel p-5 rounded-xl lg:col-span-2 space-y-4">
           <div class="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <i data-lucide="gauge" class="w-3.5 h-3.5 text-zinc-500"></i>
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <i data-lucide="gauge" class="w-4 h-4 text-zinc-500"></i>
               <span>Routing Latency Distribution</span>
             </h4>
-            <span class="text-[11px] text-zinc-500 font-mono">Response time ms</span>
+            <span class="text-xs text-zinc-400 font-mono">Response time ms</span>
           </div>
           <div id="latency-bars-container" class="space-y-3">
             <!-- Populated by JS -->
@@ -283,32 +295,32 @@
         <!-- Router Health & Endpoints Status -->
         <div class="glass-panel p-5 rounded-xl space-y-4">
           <div class="pb-2 border-b border-white/[0.06]">
-            <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-zinc-500"></i>
+            <h4 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-4 h-4 text-zinc-500"></i>
               <span>Local Router Endpoints</span>
             </h4>
           </div>
-          <div class="space-y-2 text-xs">
-            <div class="p-2.5 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
-              <span class="font-mono text-zinc-300 text-[11px]">/routerapi/v1/chat/completions</span>
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-white/10">OpenAI</span>
+          <div class="space-y-2.5 text-xs">
+            <div class="p-3 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
+              <span class="font-mono text-zinc-200 text-xs truncate mr-2">/routerapi/v1/chat/completions</span>
+              <span class="px-2 py-0.5 rounded text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10 shrink-0">OpenAI</span>
             </div>
-            <div class="p-2.5 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
-              <span class="font-mono text-zinc-300 text-[11px]">/routerapi/v1/messages</span>
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-white/10">Anthropic</span>
+            <div class="p-3 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
+              <span class="font-mono text-zinc-200 text-xs truncate mr-2">/routerapi/v1/messages</span>
+              <span class="px-2 py-0.5 rounded text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10 shrink-0">Anthropic</span>
             </div>
-            <div class="p-2.5 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
-              <span class="font-mono text-zinc-300 text-[11px]">/routerapi/v1/models</span>
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-white/10">Unified</span>
+            <div class="p-3 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
+              <span class="font-mono text-zinc-200 text-xs truncate mr-2">/routerapi/v1/models</span>
+              <span class="px-2 py-0.5 rounded text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10 shrink-0">Unified</span>
             </div>
-            <div class="p-2.5 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
-              <span class="font-mono text-zinc-300 text-[11px]">/routerapi/health</span>
-              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">OK</span>
+            <div class="p-3 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between">
+              <span class="font-mono text-zinc-200 text-xs truncate mr-2">/routerapi/health</span>
+              <span class="px-2 py-0.5 rounded text-xs font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 shrink-0">OK</span>
             </div>
           </div>
-          <div class="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-            <span>Storage: <strong class="text-zinc-300 font-normal">SQLite (/data)</strong></span>
-            <span>Hot Reload: <strong class="text-zinc-300 font-normal">&lt; 1s</strong></span>
+          <div class="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
+            <span>Storage: <strong class="text-zinc-200 font-normal">SQLite (/data)</strong></span>
+            <span>Hot Reload: <strong class="text-zinc-200 font-normal">&lt; 1s</strong></span>
           </div>
         </div>
       </div>
@@ -323,25 +335,25 @@
       <!-- Header & Action Toolbar -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
             <span>Provider Plugins &amp; Live Code Editor</span>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-zinc-900 text-zinc-300 border border-white/10">&lt; 1s Hot Reload</span>
+            <span class="px-2 py-0.5 rounded-md text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10">&lt; 1s Hot Reload</span>
           </h2>
-          <p class="text-xs text-zinc-400 mt-0.5">
-            View, edit, and instantly hot-deploy Python provider plugins in real-time.
+          <p class="text-sm text-zinc-400 mt-0.5">
+            View, edit, manage supported models, and instantly hot-deploy Python provider plugins in real-time.
           </p>
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-          <button id="btn-browse-templates" class="btn-browse-templates-trigger btn-secondary flex-1 sm:flex-none px-3.5 py-2 text-xs font-medium">
-            <i data-lucide="download-cloud" class="w-3.5 h-3.5 mr-1.5"></i>
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button id="btn-browse-templates" class="btn-browse-templates-trigger btn-secondary flex-1 sm:flex-none px-3.5 py-2 text-sm font-medium min-h-[44px]">
+            <i data-lucide="download-cloud" class="w-4 h-4 mr-1.5"></i>
             <span>Browse Templates</span>
           </button>
-          <button id="btn-reload-all-plugins" class="btn-secondary flex-1 sm:flex-none px-3.5 py-2 text-xs font-medium">
-            <i data-lucide="rotate-cw" class="w-3.5 h-3.5 mr-1.5"></i>
+          <button id="btn-reload-all-plugins" class="btn-secondary flex-1 sm:flex-none px-3.5 py-2 text-sm font-medium min-h-[44px]">
+            <i data-lucide="rotate-cw" class="w-4 h-4 mr-1.5"></i>
             <span>Reload All</span>
           </button>
-          <button id="btn-create-plugin-modal" class="btn-primary flex-1 sm:flex-none px-4 py-2 text-xs font-medium">
-            <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i>
+          <button id="btn-create-plugin-modal" class="btn-primary flex-1 sm:flex-none px-4 py-2 text-sm font-medium min-h-[44px]">
+            <i data-lucide="plus" class="w-4 h-4 mr-1.5"></i>
             <span>+ Code Custom Plugin</span>
           </button>
         </div>
@@ -350,21 +362,21 @@
       <!-- IN-BROWSER CODE EDITOR PANEL -->
       <div id="plugin-editor-card" class="glass-panel p-5 rounded-xl space-y-4 relative">
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-3 border-b border-white/[0.08]">
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <div class="flex items-center gap-2">
               <span class="p-1.5 rounded-md bg-zinc-900 text-zinc-300 border border-white/10">
-                <i data-lucide="file-code" class="w-3.5 h-3.5"></i>
+                <i data-lucide="file-code" class="w-4 h-4"></i>
               </span>
               <span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Editor Target:</span>
             </div>
 
             <!-- Plugin Selector Dropdown -->
-            <select id="editor-plugin-select" class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-white/30">
+            <select id="editor-plugin-select" class="select-obsidian bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[40px]">
               <!-- Populated dynamically -->
             </select>
 
             <!-- Template snippets selector -->
-            <select id="editor-template-select" class="bg-[#09090b] text-zinc-400 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs hover:text-zinc-200 focus:outline-none focus:border-white/30">
+            <select id="editor-template-select" class="select-obsidian bg-[#09090b] text-zinc-400 border border-white/10 rounded-lg px-3 py-2 text-sm hover:text-zinc-200 focus:outline-none focus:border-white/30 min-h-[40px]">
               <option value="">Insert Snippet...</option>
               <option value="base">Standard BasePlugin</option>
               <option value="auth_header">Custom Header Injection</option>
@@ -373,32 +385,32 @@
             </select>
           </div>
 
-          <div class="flex items-center gap-2 self-end lg:self-auto">
-            <span id="editor-status-badge" class="text-[11px] font-mono text-zinc-400 px-2 py-1 rounded-md bg-[#09090b] border border-white/10 flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+          <div class="flex items-center gap-2.5 self-end lg:self-auto w-full sm:w-auto justify-end">
+            <span id="editor-status-badge" class="text-xs font-mono text-zinc-400 px-2.5 py-1.5 rounded-md bg-[#09090b] border border-white/10 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
               <span>Ready</span>
             </span>
-            <button id="btn-editor-reset" class="btn-secondary px-3 py-1.5 text-xs font-medium">
+            <button id="btn-editor-reset" class="btn-secondary px-3.5 py-2 text-sm font-medium min-h-[40px]">
               Reset
             </button>
-            <button id="btn-editor-save-deploy" class="btn-primary px-4 py-1.5 text-xs font-medium">
-              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1.5 fill-current"></i>
+            <button id="btn-editor-save-deploy" class="btn-primary px-4 py-2 text-sm font-medium min-h-[40px]">
+              <i data-lucide="zap" class="w-4 h-4 mr-1.5 fill-current"></i>
               <span>Save &amp; Deploy</span>
             </button>
           </div>
         </div>
 
-        <!-- CodeMirror Editor Mount Point -->
-        <div class="relative rounded-lg overflow-hidden border border-white/[0.08]">
+        <!-- CodeMirror Editor Mount Point (Horizontally scrollable container) -->
+        <div class="relative rounded-lg overflow-x-auto max-w-full border border-white/[0.08]">
           <textarea id="plugin-code-textarea" class="hidden"></textarea>
         </div>
 
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-zinc-400 gap-2">
-          <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-500">
-            <i data-lucide="info" class="w-3.5 h-3.5 text-zinc-400"></i>
-            <span>Subclass <code class="text-zinc-300">BasePlugin</code>. Changes take effect on next request in &lt; 1s.</span>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-sm text-zinc-400 gap-2">
+          <div class="flex items-center gap-2 font-mono text-xs text-zinc-400">
+            <i data-lucide="info" class="w-4 h-4 text-zinc-400 shrink-0"></i>
+            <span>Subclass <code class="text-zinc-200">BasePlugin</code>. Changes take effect on next request in &lt; 1s.</span>
           </div>
-          <div id="hot-reload-time-display" class="font-mono text-emerald-400 text-[11px] font-medium hidden">
+          <div id="hot-reload-time-display" class="font-mono text-emerald-400 text-xs font-medium hidden">
             Deployed in 28ms
           </div>
         </div>
@@ -406,35 +418,35 @@
 
       <!-- Installed Provider Plugins List -->
       <div class="space-y-3">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-          <i data-lucide="boxes" class="w-3.5 h-3.5 text-zinc-500"></i>
+        <h3 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+          <i data-lucide="boxes" class="w-4 h-4 text-zinc-500"></i>
           <span>Installed Providers</span>
         </h3>
 
         <!-- Clean Zero-Provider Default State (Plugins view) -->
         <div id="plugins-empty-state" class="glass-panel p-8 sm:p-10 rounded-xl text-center space-y-4">
-          <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto text-zinc-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]">
-            <i data-lucide="blocks" class="w-6 h-6"></i>
+          <div class="w-14 h-14 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto text-zinc-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]">
+            <i data-lucide="blocks" class="w-7 h-7"></i>
           </div>
-          <div class="space-y-1.5 max-w-md mx-auto">
-            <h4 class="text-base font-semibold text-zinc-100">No AI Providers Connected</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-2 max-w-md mx-auto">
+            <h4 class="text-lg font-bold text-zinc-100">No AI Providers Connected</h4>
+            <p class="text-sm text-zinc-400 leading-relaxed">
               SLProxy is running with a clean slate. Connect your first provider using a reference template or write a custom Python plugin.
             </p>
           </div>
           <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button class="btn-browse-templates-trigger btn-primary px-4 py-2 text-xs font-medium">
-              <i data-lucide="download-cloud" class="w-3.5 h-3.5 mr-1.5"></i>
+            <button class="btn-browse-templates-trigger btn-primary px-4 py-2.5 text-sm font-medium min-h-[44px]">
+              <i data-lucide="download-cloud" class="w-4 h-4 mr-2"></i>
               <span>Browse Templates</span>
             </button>
-            <button class="btn-create-plugin-trigger btn-secondary px-4 py-2 text-xs font-medium">
-              <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i>
+            <button class="btn-create-plugin-trigger btn-secondary px-4 py-2.5 text-sm font-medium min-h-[44px]">
+              <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
               <span>+ Code Custom Plugin</span>
             </button>
           </div>
         </div>
 
-        <div id="plugins-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 hidden">
+        <div id="plugins-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden">
           <!-- Populated by JS -->
         </div>
       </div>
@@ -449,37 +461,37 @@
       <!-- Header & Actions -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
             <span>Provider Accounts</span>
-            <span id="badge-accounts-count" class="px-2 py-0.5 rounded-md text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10">0 Accounts</span>
+            <span id="badge-accounts-count" class="px-2.5 py-0.5 rounded-md text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10">0 Accounts</span>
           </h2>
-          <p class="text-xs text-zinc-400 mt-0.5">
-            Configure multiple API keys and endpoints per provider with priority failover, weighted round-robin, and rate limit cooldowns.
+          <p class="text-sm text-zinc-400 mt-0.5">
+            Configure multiple API keys and endpoints per provider with priority failover, weighted round-robin, custom model overrides, and rate limit cooldowns.
           </p>
         </div>
-        <button id="btn-add-account-modal" class="btn-primary px-4 py-2 text-xs font-medium">
-          <i data-lucide="user-plus" class="w-3.5 h-3.5 mr-1.5"></i>
+        <button id="btn-add-account-modal" class="btn-primary px-4 py-2 text-sm font-medium min-h-[44px]">
+          <i data-lucide="user-plus" class="w-4 h-4 mr-1.5"></i>
           <span>Add Account</span>
         </button>
       </div>
 
       <!-- Accounts Filter Bar -->
-      <div class="glass-panel p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div class="flex items-center gap-2">
+      <div class="glass-panel p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div class="flex items-center gap-2.5">
           <span class="text-zinc-400 font-medium">Filter Provider:</span>
-          <select id="filter-accounts-provider" class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-2.5 py-1 text-xs focus:outline-none">
+          <select id="filter-accounts-provider" class="select-obsidian bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none min-h-[38px]">
             <option value="all">All Providers</option>
           </select>
         </div>
-        <div class="text-zinc-500 text-[11px] flex items-center gap-3 font-mono">
-          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> Active</span>
-          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span> Cooldown / Rate Limit</span>
-          <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-zinc-600 inline-block"></span> Disabled</span>
+        <div class="text-zinc-400 text-xs flex items-center gap-3.5 font-mono">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Active</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Cooldown / Rate Limit</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-zinc-600 inline-block"></span> Disabled</span>
         </div>
       </div>
 
       <!-- Accounts Table / Card Grid -->
-      <div id="accounts-list-container" class="space-y-3">
+      <div id="accounts-list-container" class="space-y-4">
         <!-- Populated by JS -->
       </div>
 
@@ -493,44 +505,44 @@
       <!-- Header & Actions -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
             <span>Local Router API Keys</span>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-zinc-900 text-zinc-300 border border-white/10">Client Auth</span>
+            <span class="px-2 py-0.5 rounded-md text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10">Client Auth</span>
           </h2>
-          <p class="text-xs text-zinc-400 mt-0.5">
+          <p class="text-sm text-zinc-400 mt-0.5">
             Create tokens for Claude Code, Cursor, OpenCode, scripts, and applications connecting to <code class="text-zinc-300 font-mono">/routerapi</code>.
           </p>
         </div>
-        <button id="btn-generate-key-modal" class="btn-primary px-4 py-2 text-xs font-medium">
-          <i data-lucide="key" class="w-3.5 h-3.5 mr-1.5"></i>
+        <button id="btn-generate-key-modal" class="btn-primary px-4 py-2 text-sm font-medium min-h-[44px]">
+          <i data-lucide="key" class="w-4 h-4 mr-1.5"></i>
           <span>Generate New Key</span>
         </button>
       </div>
 
       <!-- Key Usage Notice -->
-      <div class="glass-panel p-4 rounded-xl flex items-start gap-3">
-        <i data-lucide="shield" class="w-4 h-4 text-zinc-400 shrink-0 mt-0.5"></i>
-        <div class="text-xs space-y-1">
+      <div class="glass-panel p-4 rounded-xl flex items-start gap-3.5">
+        <i data-lucide="shield" class="w-5 h-5 text-zinc-400 shrink-0 mt-0.5"></i>
+        <div class="text-sm space-y-1">
           <p class="font-semibold text-zinc-200">How clients connect to SLProxy</p>
           <p class="text-zinc-400">
-            Pass the router key in header <code class="px-1.5 py-0.5 rounded bg-[#09090b] text-zinc-200 border border-white/10 font-mono">Authorization: Bearer slp-live-...</code> with base URL <code class="px-1.5 py-0.5 rounded bg-[#09090b] text-zinc-200 border border-white/10 font-mono">http://localhost:8080/routerapi/v1</code>.
+            Pass the router key in header <code class="px-1.5 py-0.5 rounded bg-[#09090b] text-zinc-200 border border-white/10 font-mono text-xs">Authorization: Bearer slp-live-...</code> with base URL <code class="px-1.5 py-0.5 rounded bg-[#09090b] text-zinc-200 border border-white/10 font-mono text-xs">http://localhost:8080/routerapi/v1</code>.
           </p>
         </div>
       </div>
 
-      <!-- Router Keys Table -->
+      <!-- Router Keys Table (Scrollable container for mobile) -->
       <div class="glass-panel rounded-xl overflow-hidden border border-white/[0.08]">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-zinc-300">
-            <thead class="bg-[#0d0d10] text-zinc-400 font-semibold uppercase text-[10px] tracking-wider border-b border-white/[0.08]">
+        <div class="overflow-x-auto w-full">
+          <table class="w-full text-left text-sm text-zinc-300">
+            <thead class="bg-[#0d0d10] text-zinc-400 font-semibold uppercase text-xs tracking-wider border-b border-white/[0.08]">
               <tr>
-                <th class="px-4 py-3">Key Name</th>
-                <th class="px-4 py-3">Token Prefix</th>
-                <th class="px-4 py-3">Requests Used</th>
-                <th class="px-4 py-3">Tokens Used</th>
-                <th class="px-4 py-3">Allowed Models</th>
-                <th class="px-4 py-3">Expires</th>
-                <th class="px-4 py-3 text-right">Actions</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Key Name</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Token Prefix</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Requests Used</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Tokens Used</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Allowed Models</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Expires</th>
+                <th class="px-4 py-3.5 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody id="keys-table-body" class="divide-y divide-white/[0.06] font-sans">
@@ -550,60 +562,60 @@
       <!-- Header & Auto Refresh Controls -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
             <span>Live Request Stream</span>
             <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-medium px-2 py-0.5 rounded-md bg-zinc-900 border border-white/10">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot inline-block"></span>
-              <span class="font-mono text-[11px]">Streaming</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot inline-block"></span>
+              <span class="font-mono text-xs">Streaming</span>
             </span>
           </h2>
-          <p class="text-xs text-zinc-400 mt-0.5">
+          <p class="text-sm text-zinc-400 mt-0.5">
             Real-time telemetry showing routed requests, account selections, latency, and tokens.
           </p>
         </div>
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <button id="btn-toggle-log-stream" class="btn-secondary px-3.5 py-1.5 text-xs font-medium">
-            <i data-lucide="pause" id="icon-log-stream" class="w-3.5 h-3.5 mr-1.5"></i>
+          <button id="btn-toggle-log-stream" class="btn-secondary px-4 py-2 text-sm font-medium min-h-[44px]">
+            <i data-lucide="pause" id="icon-log-stream" class="w-4 h-4 mr-1.5"></i>
             <span id="text-log-stream">Pause</span>
           </button>
-          <button id="btn-clear-logs" class="btn-secondary px-3.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-rose-400">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5 mr-1.5"></i>
+          <button id="btn-clear-logs" class="btn-secondary px-4 py-2 text-sm font-medium text-zinc-400 hover:text-rose-400 min-h-[44px]">
+            <i data-lucide="trash-2" class="w-4 h-4 mr-1.5"></i>
             <span>Clear</span>
           </button>
         </div>
       </div>
 
       <!-- Filters -->
-      <div class="glass-panel p-3 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div class="flex flex-wrap items-center gap-3">
-          <input type="text" id="filter-logs-search" placeholder="Search model, endpoint, or error..." class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-xs w-64 focus:outline-none focus:border-white/30 placeholder:text-zinc-600 font-mono" />
-          <select id="filter-logs-status" class="bg-[#09090b] text-zinc-300 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none">
+      <div class="glass-panel p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <input type="text" id="filter-logs-search" placeholder="Search model, endpoint, or error..." class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2 text-sm w-full sm:w-72 focus:outline-none focus:border-white/30 placeholder:text-zinc-600 font-mono min-h-[40px]" />
+          <select id="filter-logs-status" class="select-obsidian bg-[#09090b] text-zinc-300 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[40px]">
             <option value="all">All Status Codes</option>
             <option value="200">200 OK</option>
             <option value="error">Errors &amp; Quotas (4xx / 5xx)</option>
           </select>
         </div>
-        <span id="logs-count-display" class="text-zinc-500 text-[11px] font-mono">0 logs recorded</span>
+        <span id="logs-count-display" class="text-zinc-400 text-xs font-mono">0 logs recorded</span>
       </div>
 
-      <!-- Logs Table -->
+      <!-- Logs Table (Horizontally scrollable for mobile) -->
       <div class="glass-panel rounded-xl overflow-hidden border border-white/[0.08]">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-zinc-300">
-            <thead class="bg-[#0d0d10] text-zinc-400 font-semibold uppercase text-[10px] tracking-wider border-b border-white/[0.08]">
+        <div class="overflow-x-auto w-full">
+          <table class="w-full text-left text-sm text-zinc-300">
+            <thead class="bg-[#0d0d10] text-zinc-400 font-semibold uppercase text-xs tracking-wider border-b border-white/[0.08]">
               <tr>
-                <th class="px-4 py-3">Time</th>
-                <th class="px-4 py-3">Endpoint</th>
-                <th class="px-4 py-3">Model</th>
-                <th class="px-4 py-3">Provider</th>
-                <th class="px-4 py-3">Account</th>
-                <th class="px-4 py-3">Status</th>
-                <th class="px-4 py-3">Latency</th>
-                <th class="px-4 py-3">Tokens</th>
-                <th class="px-4 py-3">Error</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Time</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Endpoint</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Model</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Provider</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Account</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Status</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Latency</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Tokens</th>
+                <th class="px-4 py-3.5 whitespace-nowrap">Error</th>
               </tr>
             </thead>
-            <tbody id="logs-table-body" class="divide-y divide-white/[0.06] font-mono text-[11px]">
+            <tbody id="logs-table-body" class="divide-y divide-white/[0.06] font-mono text-xs">
               <!-- Populated by JS -->
             </tbody>
           </table>
@@ -620,17 +632,17 @@
       <!-- Header -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
             <span>Interactive API Playground</span>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-zinc-900 text-zinc-300 border border-white/10">Test Route</span>
+            <span class="px-2 py-0.5 rounded-md text-xs font-mono bg-zinc-900 text-zinc-300 border border-white/10">Test Route</span>
           </h2>
-          <p class="text-xs text-zinc-400 mt-0.5">
+          <p class="text-sm text-zinc-400 mt-0.5">
             Test <code class="text-zinc-300 font-mono">/routerapi/v1/chat/completions</code> through your dynamic plugins directly from the browser.
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="btn-copy-curl" class="btn-secondary px-3.5 py-2 text-xs font-medium">
-            <i data-lucide="terminal" class="w-3.5 h-3.5 mr-1.5"></i>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button id="btn-copy-curl" class="btn-secondary px-4 py-2 text-sm font-medium w-full sm:w-auto min-h-[44px]">
+            <i data-lucide="terminal" class="w-4 h-4 mr-1.5"></i>
             <span>Copy cURL</span>
           </button>
         </div>
@@ -641,66 +653,66 @@
         <!-- Controls Column (5 cols) -->
         <div class="lg:col-span-5 space-y-4">
           <div class="glass-panel p-5 rounded-xl space-y-4">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2 pb-2 border-b border-white/[0.06]">
-              <i data-lucide="sliders" class="w-3.5 h-3.5 text-zinc-500"></i>
+            <h3 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+              <i data-lucide="sliders" class="w-4 h-4 text-zinc-500"></i>
               <span>Request Configuration</span>
             </h3>
 
             <!-- Key Selector -->
             <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">Router Key</label>
-              <select id="pg-key-select" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-white/30">
+              <label class="block text-sm font-medium text-zinc-300 mb-1">Router Key</label>
+              <select id="pg-key-select" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-white/30 min-h-[42px]">
                 <!-- Populated dynamically -->
               </select>
             </div>
 
             <!-- Model Selector -->
             <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">Model</label>
-              <select id="pg-model-select" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-white/30">
+              <label class="block text-sm font-medium text-zinc-300 mb-1">Model</label>
+              <select id="pg-model-select" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[42px]">
                 <!-- Populated dynamically -->
               </select>
             </div>
 
             <!-- Temperature Slider -->
             <div>
-              <div class="flex items-center justify-between text-xs mb-1">
+              <div class="flex items-center justify-between text-sm mb-1.5">
                 <span class="text-zinc-300 font-medium">Temperature</span>
                 <span id="pg-temp-val" class="font-mono text-zinc-100 font-semibold">0.7</span>
               </div>
-              <input type="range" id="pg-temperature" min="0" max="2" step="0.1" value="0.7" class="w-full accent-white bg-zinc-900 h-1.5 rounded-lg appearance-none cursor-pointer" />
+              <input type="range" id="pg-temperature" min="0" max="2" step="0.1" value="0.7" class="w-full accent-white bg-zinc-900 h-2 rounded-lg appearance-none cursor-pointer" />
             </div>
 
             <!-- Max Tokens -->
             <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">Max Tokens</label>
-              <input type="number" id="pg-max-tokens" value="1024" min="1" max="32768" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-white/30" />
+              <label class="block text-sm font-medium text-zinc-300 mb-1">Max Tokens</label>
+              <input type="number" id="pg-max-tokens" value="1024" min="1" max="32768" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[42px]" />
             </div>
 
             <!-- Stream Checkbox -->
-            <div class="flex items-center justify-between p-3 rounded-lg bg-[#09090b] border border-white/[0.06]">
+            <div class="flex items-center justify-between p-3.5 rounded-lg bg-[#09090b] border border-white/[0.06]">
               <div>
-                <span class="text-xs font-medium text-zinc-200 block">Streaming Response</span>
-                <span class="text-[11px] text-zinc-500 font-mono">Server-Sent Events (SSE)</span>
+                <span class="text-sm font-medium text-zinc-200 block">Streaming Response</span>
+                <span class="text-xs text-zinc-400 font-mono">Server-Sent Events (SSE)</span>
               </div>
-              <input type="checkbox" id="pg-stream" checked class="w-4 h-4 accent-white rounded cursor-pointer" />
+              <input type="checkbox" id="pg-stream" checked class="w-5 h-5 accent-white rounded cursor-pointer" />
             </div>
 
             <!-- System Prompt -->
             <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">System Prompt</label>
-              <textarea id="pg-system-prompt" rows="2" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-3 text-xs focus:outline-none focus:border-white/30 placeholder:text-zinc-600 resize-none font-mono" placeholder="You are a helpful AI assistant."></textarea>
+              <label class="block text-sm font-medium text-zinc-300 mb-1">System Prompt</label>
+              <textarea id="pg-system-prompt" rows="2" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-white/30 placeholder:text-zinc-600 resize-none font-mono" placeholder="You are a helpful AI assistant."></textarea>
             </div>
 
             <!-- User Message -->
             <div>
-              <label class="block text-xs font-medium text-zinc-300 mb-1">User Message</label>
-              <textarea id="pg-user-message" rows="3" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-3 text-xs focus:outline-none focus:border-white/30 placeholder:text-zinc-600 resize-none font-mono">Explain the benefits of dynamic Python plugins in AI routers in 2 sentences.</textarea>
+              <label class="block text-sm font-medium text-zinc-300 mb-1">User Message</label>
+              <textarea id="pg-user-message" rows="3" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-white/30 placeholder:text-zinc-600 resize-none font-mono">Explain the benefits of dynamic Python plugins in AI routers in 2 sentences.</textarea>
             </div>
 
             <!-- Send Request Button -->
-            <button id="btn-pg-send" class="btn-primary w-full py-2.5 text-xs font-medium">
-              <i data-lucide="send" class="w-3.5 h-3.5 mr-1.5"></i>
+            <button id="btn-pg-send" class="btn-primary w-full py-3 text-sm font-medium min-h-[44px]">
+              <i data-lucide="send" class="w-4 h-4 mr-1.5"></i>
               <span id="pg-send-text">Send Chat Completion</span>
             </button>
 
@@ -711,30 +723,30 @@
         <div class="lg:col-span-7 space-y-4">
           <div class="glass-panel p-5 rounded-xl space-y-4 min-h-[520px] flex flex-col">
             <div class="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-              <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-                <i data-lucide="message-square" class="w-3.5 h-3.5 text-zinc-500"></i>
+              <h3 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                <i data-lucide="message-square" class="w-4 h-4 text-zinc-500"></i>
                 <span>Response Stream</span>
               </h3>
-              <div class="flex items-center gap-2 text-[11px] font-mono" id="pg-meta-badge">
-                <span class="text-zinc-500">Ready</span>
+              <div class="flex items-center gap-2 text-xs font-mono" id="pg-meta-badge">
+                <span class="text-zinc-400">Ready</span>
               </div>
             </div>
 
             <!-- Output Message Viewport -->
-            <div id="pg-output-box" class="flex-1 bg-[#09090b] rounded-lg p-4 border border-white/[0.08] text-xs font-mono whitespace-pre-wrap overflow-y-auto max-h-[460px] text-zinc-200 leading-relaxed">
+            <div id="pg-output-box" class="flex-1 bg-[#09090b] rounded-lg p-4 border border-white/[0.08] text-sm font-mono whitespace-pre-wrap overflow-y-auto max-h-[460px] text-zinc-200 leading-relaxed">
 Click "Send Chat Completion" to test routing to your configured providers.
             </div>
 
             <!-- Raw JSON Response Drawer Toggle -->
-            <div class="pt-3 border-t border-white/[0.08] flex items-center justify-between text-xs text-zinc-400">
-              <button id="btn-toggle-raw-json" class="text-zinc-400 hover:text-white flex items-center gap-1.5 text-[11px] transition-colors">
-                <i data-lucide="braces" class="w-3.5 h-3.5"></i>
+            <div class="pt-3 border-t border-white/[0.08] flex items-center justify-between text-sm text-zinc-400">
+              <button id="btn-toggle-raw-json" class="text-zinc-400 hover:text-white flex items-center gap-1.5 text-xs transition-colors">
+                <i data-lucide="braces" class="w-4 h-4"></i>
                 <span id="text-raw-json">View Raw JSON</span>
               </button>
-              <div id="pg-perf-stats" class="text-[11px] font-mono text-zinc-500"></div>
+              <div id="pg-perf-stats" class="text-xs font-mono text-zinc-400"></div>
             </div>
 
-            <pre id="pg-raw-json" class="hidden bg-[#09090b] p-3 rounded-lg border border-white/10 text-[11px] font-mono text-zinc-300 max-h-48 overflow-y-auto overflow-x-auto"></pre>
+            <pre id="pg-raw-json" class="hidden bg-[#09090b] p-3 rounded-lg border border-white/10 text-xs font-mono text-zinc-300 max-h-48 overflow-y-auto overflow-x-auto"></pre>
           </div>
         </div>
 
@@ -749,10 +761,10 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
       <!-- Header -->
       <div>
-        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2.5">
           <span>Router Settings &amp; Configuration</span>
         </h2>
-        <p class="text-xs text-zinc-400 mt-0.5">
+        <p class="text-sm text-zinc-400 mt-0.5">
           Configure proxy routing strategies, local port, storage, and import/export backups.
         </p>
       </div>
@@ -761,27 +773,27 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- Routing Strategy Settings -->
         <div class="glass-panel p-5 rounded-xl space-y-4">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2 pb-2 border-b border-white/[0.06]">
-            <i data-lucide="shuffle" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+            <i data-lucide="shuffle" class="w-4 h-4 text-zinc-500"></i>
             <span>Default Multi-Account Routing Strategy</span>
           </h3>
 
           <div class="space-y-3">
-            <label class="flex items-start gap-3 p-3.5 rounded-lg bg-[#09090b] border border-white/[0.08] cursor-pointer hover:border-white/20 transition-all">
-              <input type="radio" name="routing-strategy" value="fallback" checked class="mt-1 accent-white" />
+            <label class="flex items-start gap-3.5 p-4 rounded-lg bg-[#09090b] border border-white/[0.08] cursor-pointer hover:border-white/20 transition-all">
+              <input type="radio" name="routing-strategy" value="fallback" checked class="mt-1 w-4 h-4 accent-white" />
               <div>
-                <span class="text-xs font-semibold text-white block">Priority Fallback (Recommended)</span>
-                <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">
+                <span class="text-sm font-semibold text-white block">Priority Fallback (Recommended)</span>
+                <span class="text-xs text-zinc-400 block mt-1 leading-relaxed">
                   Tries accounts with lowest priority integer (1, 2, ...). If rate-limited (429/quota), automatically enters cooldown backoff and fails over instantly to the next account.
                 </span>
               </div>
             </label>
 
-            <label class="flex items-start gap-3 p-3.5 rounded-lg bg-[#09090b] border border-white/[0.08] cursor-pointer hover:border-white/20 transition-all">
-              <input type="radio" name="routing-strategy" value="round_robin" class="mt-1 accent-white" />
+            <label class="flex items-start gap-3.5 p-4 rounded-lg bg-[#09090b] border border-white/[0.08] cursor-pointer hover:border-white/20 transition-all">
+              <input type="radio" name="routing-strategy" value="round_robin" class="mt-1 w-4 h-4 accent-white" />
               <div>
-                <span class="text-xs font-semibold text-white block">Weighted Round-Robin</span>
-                <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">
+                <span class="text-sm font-semibold text-white block">Weighted Round-Robin</span>
+                <span class="text-xs text-zinc-400 block mt-1 leading-relaxed">
                   Evenly distributes requests across all active accounts weighted by their configured weight value, maximizing total throughput.
                 </span>
               </div>
@@ -789,7 +801,7 @@ Click "Send Chat Completion" to test routing to your configured providers.
           </div>
 
           <div class="pt-3 border-t border-white/[0.08] flex justify-end">
-            <button id="btn-save-strategy" class="btn-primary px-4 py-2 text-xs font-medium">
+            <button id="btn-save-strategy" class="btn-primary px-4 py-2 text-sm font-medium min-h-[44px]">
               Save Strategy
             </button>
           </div>
@@ -797,40 +809,40 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- System & Backup -->
         <div class="glass-panel p-5 rounded-xl space-y-4">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2 pb-2 border-b border-white/[0.06]">
-            <i data-lucide="database" class="w-3.5 h-3.5 text-zinc-500"></i>
+          <h3 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2 pb-2 border-b border-white/[0.06]">
+            <i data-lucide="database" class="w-4 h-4 text-zinc-500"></i>
             <span>Configuration Backup &amp; Restore</span>
           </h3>
 
-          <p class="text-xs text-zinc-400 leading-relaxed">
+          <p class="text-sm text-zinc-400 leading-relaxed">
             Export all accounts, router keys, and custom plugin code as a portable JSON snapshot.
           </p>
 
           <div class="flex flex-col sm:flex-row gap-3 pt-2">
-            <button id="btn-export-config" class="btn-secondary flex-1 px-4 py-2.5 text-xs font-medium">
-              <i data-lucide="download" class="w-3.5 h-3.5 mr-1.5"></i>
+            <button id="btn-export-config" class="btn-secondary flex-1 px-4 py-2.5 text-sm font-medium min-h-[44px]">
+              <i data-lucide="download" class="w-4 h-4 mr-1.5"></i>
               <span>Export Config (JSON)</span>
             </button>
-            <label class="btn-secondary flex-1 px-4 py-2.5 text-xs font-medium cursor-pointer">
-              <i data-lucide="upload" class="w-3.5 h-3.5 mr-1.5"></i>
+            <label class="btn-secondary flex-1 px-4 py-2.5 text-sm font-medium cursor-pointer min-h-[44px] flex items-center justify-center">
+              <i data-lucide="upload" class="w-4 h-4 mr-1.5"></i>
               <span>Import Config</span>
               <input type="file" id="input-import-config" accept=".json" class="hidden" />
             </label>
           </div>
 
           <!-- Environment Specs -->
-          <div class="pt-4 border-t border-white/[0.08] space-y-2 text-xs font-mono">
+          <div class="pt-4 border-t border-white/[0.08] space-y-2.5 text-xs font-mono">
             <div class="flex items-center justify-between text-zinc-400">
-              <span class="font-sans">Server Host / Port:</span>
+              <span class="font-sans text-sm">Server Host / Port:</span>
               <span class="text-zinc-200">0.0.0.0:8080</span>
             </div>
             <div class="flex items-center justify-between text-zinc-400">
-              <span class="font-sans">Data Volume:</span>
+              <span class="font-sans text-sm">Data Volume:</span>
               <span class="text-zinc-200">/data (slproxy.db)</span>
             </div>
             <div class="flex items-center justify-between text-zinc-400">
-              <span class="font-sans">Hot Reload Latency:</span>
-              <span class="text-emerald-400">&lt; 1s instantaneous</span>
+              <span class="font-sans text-sm">Plugins Directory:</span>
+              <span class="text-zinc-200">/data/plugins/</span>
             </div>
           </div>
         </div>
@@ -850,16 +862,16 @@ Click "Send Chat Completion" to test routing to your configured providers.
       <!-- Tour Header -->
       <div class="flex items-center justify-between pb-4 border-b border-white/[0.08]">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-[#18181b] border border-white/10 flex items-center justify-center text-zinc-200">
-            <i data-lucide="compass" class="w-4 h-4"></i>
+          <div class="w-9 h-9 rounded-lg bg-[#18181b] border border-white/10 flex items-center justify-center text-zinc-200">
+            <i data-lucide="compass" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">Quick Setup Tour</h3>
-            <p id="tour-step-badge" class="text-[11px] font-mono text-zinc-400">Step 1 of 5</p>
+            <h3 class="text-base font-bold text-white">Quick Setup Tour</h3>
+            <p id="tour-step-badge" class="text-xs font-mono text-zinc-400">Step 1 of 5</p>
           </div>
         </div>
-        <button id="btn-close-tour" class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button id="btn-close-tour" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
@@ -868,39 +880,39 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- STEP 1: The Core Idea -->
         <div id="tour-step-1" class="tour-step space-y-4">
-          <div class="space-y-1">
-            <h4 class="text-base font-semibold text-white">1. The Core Idea: Local Router Architecture</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-1.5">
+            <h4 class="text-lg font-bold text-white">1. The Core Idea: Local Router Architecture</h4>
+            <p class="text-sm text-zinc-300 leading-relaxed">
               SLProxy runs locally on <code class="px-1.5 py-0.5 rounded bg-[#09090b] text-zinc-200 border border-white/10 font-mono">:8080</code>, acting as a high-performance routing bridge between your AI coding tools and multiple backend providers.
             </p>
           </div>
 
           <!-- Architecture Visual Diagram -->
-          <div class="p-4 rounded-xl bg-[#09090b] border border-white/[0.08] font-mono text-[11px] text-zinc-300 space-y-3">
-            <div class="text-zinc-500 uppercase text-[10px] tracking-wider font-semibold">Architecture Overview:</div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
-              <div class="p-2.5 rounded-lg bg-[#141418] border border-white/10">
-                <div class="font-bold text-white text-xs">Coding Tools</div>
-                <div class="text-[10px] text-zinc-400 mt-0.5">Claude Code, Cursor, OpenCode, Codex</div>
+          <div class="p-4 rounded-xl bg-[#09090b] border border-white/[0.08] font-mono text-xs text-zinc-300 space-y-3">
+            <div class="text-zinc-400 uppercase text-xs tracking-wider font-semibold">Architecture Overview:</div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+              <div class="p-3 rounded-lg bg-[#141418] border border-white/10">
+                <div class="font-bold text-white text-sm">Coding Tools</div>
+                <div class="text-xs text-zinc-400 mt-1">Claude Code, Cursor, OpenCode, Codex</div>
               </div>
-              <div class="p-2.5 rounded-lg bg-zinc-900 border border-white/20 flex flex-col justify-center">
-                <div class="font-bold text-white text-xs">SLProxy (:8080)</div>
-                <div class="text-[10px] text-zinc-400 mt-0.5">Router &amp; Python Plugins</div>
+              <div class="p-3 rounded-lg bg-zinc-900 border border-white/20 flex flex-col justify-center">
+                <div class="font-bold text-white text-sm">SLProxy (:8080)</div>
+                <div class="text-xs text-zinc-400 mt-1">Router &amp; Python Plugins</div>
               </div>
-              <div class="p-2.5 rounded-lg bg-[#141418] border border-white/10">
-                <div class="font-bold text-white text-xs">AI Backends</div>
-                <div class="text-[10px] text-zinc-400 mt-0.5">Antigravity, OpenAI, Anthropic, Local</div>
+              <div class="p-3 rounded-lg bg-[#141418] border border-white/10">
+                <div class="font-bold text-white text-sm">AI Backends</div>
+                <div class="text-xs text-zinc-400 mt-1">Antigravity, OpenAI, Anthropic, Local</div>
               </div>
             </div>
           </div>
 
-          <ul class="space-y-1.5 text-xs text-zinc-400">
-            <li class="flex items-start gap-2">
-              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5"></i>
-              <span><strong>Unified Endpoints:</strong> Single URL for both OpenAI (<code class="font-mono text-zinc-300">/v1/chat/completions</code>) and Anthropic (<code class="font-mono text-zinc-300">/v1/messages</code>).</span>
+          <ul class="space-y-2 text-sm text-zinc-300">
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
+              <span><strong>Unified Endpoints:</strong> Single URL for both OpenAI (<code class="font-mono text-zinc-200">/v1/chat/completions</code>) and Anthropic (<code class="font-mono text-zinc-200">/v1/messages</code>).</span>
             </li>
-            <li class="flex items-start gap-2">
-              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5"></i>
+            <li class="flex items-start gap-2.5">
+              <i data-lucide="check" class="w-4 h-4 text-emerald-400 shrink-0 mt-0.5"></i>
               <span><strong>Zero Lock-in:</strong> Switch models, inject headers, or failover without touching your IDE configuration.</span>
             </li>
           </ul>
@@ -908,42 +920,42 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- STEP 2: Add or Code a Provider Plugin -->
         <div id="tour-step-2" class="tour-step hidden space-y-4">
-          <div class="space-y-1">
-            <h4 class="text-base font-semibold text-white">2. Provider Plugins with &lt; 1s Hot Reload</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-1.5">
+            <h4 class="text-lg font-bold text-white">2. Provider Plugins with &lt; 1s Hot Reload</h4>
+            <p class="text-sm text-zinc-300 leading-relaxed">
               Every provider in SLProxy is an editable, isolated Python plugin. Change token interceptors, request headers, or quota detection logic live in your browser with instant hot reload.
             </p>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
-              <div class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div class="p-4 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
+              <div class="flex items-center gap-2 text-sm font-semibold text-zinc-200">
                 <i data-lucide="download-cloud" class="w-4 h-4 text-zinc-400"></i>
                 <span>Reference Templates</span>
               </div>
-              <p class="text-[11px] text-zinc-400 leading-relaxed">
+              <p class="text-xs text-zinc-400 leading-relaxed">
                 Install pre-built plugins for OpenAI Codex, Claude Code, Google Antigravity, OpenRouter, Moonmath Zro, and Ollama with 1 click.
               </p>
-              <button class="btn-browse-templates-trigger btn-secondary w-full py-1.5 text-xs font-medium">
+              <button class="btn-browse-templates-trigger btn-secondary w-full py-2 text-sm font-medium min-h-[44px]">
                 Browse Reference Templates
               </button>
             </div>
 
-            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
-              <div class="flex items-center gap-2 text-xs font-semibold text-zinc-200">
+            <div class="p-4 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
+              <div class="flex items-center gap-2 text-sm font-semibold text-zinc-200">
                 <i data-lucide="code" class="w-4 h-4 text-zinc-400"></i>
                 <span>Custom Python Code</span>
               </div>
-              <p class="text-[11px] text-zinc-400 leading-relaxed">
+              <p class="text-xs text-zinc-400 leading-relaxed">
                 Subclass <code class="font-mono text-zinc-300">BasePlugin</code>. Custom headers, quota parsers, and stream transformations reload in &lt; 100ms.
               </p>
-              <button class="btn-create-plugin-trigger btn-secondary w-full py-1.5 text-xs font-medium">
+              <button class="btn-create-plugin-trigger btn-secondary w-full py-2 text-sm font-medium min-h-[44px]">
                 Create Custom Plugin
               </button>
             </div>
           </div>
 
-          <div class="p-3 rounded-lg bg-zinc-900/60 border border-white/10 text-xs text-zinc-300 flex items-center gap-2">
+          <div class="p-3.5 rounded-lg bg-zinc-900/60 border border-white/10 text-sm text-zinc-300 flex items-center gap-2.5">
             <i data-lucide="zap" class="w-4 h-4 text-zinc-400 shrink-0"></i>
             <span>No server restarts required — hot reload deploys changes instantly.</span>
           </div>
@@ -951,33 +963,33 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- STEP 3: Multi-Account Routing -->
         <div id="tour-step-3" class="tour-step hidden space-y-4">
-          <div class="space-y-1">
-            <h4 class="text-base font-semibold text-white">3. Multi-Account Routing &amp; Failover</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-1.5">
+            <h4 class="text-lg font-bold text-white">3. Multi-Account Routing &amp; Failover</h4>
+            <p class="text-sm text-zinc-300 leading-relaxed">
               Add multiple API keys per provider to eliminate rate limits, tier throttling, and token quotas.
             </p>
           </div>
 
-          <div class="space-y-2.5">
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-zinc-200">Priority Fallback (Recommended)</span>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-white/10">Default</span>
+                <span class="text-sm font-semibold text-zinc-200">Priority Fallback (Recommended)</span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-white/10">Default</span>
               </div>
-              <p class="text-[11px] text-zinc-400 leading-relaxed">
+              <p class="text-xs text-zinc-400 leading-relaxed">
                 Always routes to Priority 1 account first. When an account receives an HTTP 429 or quota limit, SLProxy automatically puts it into cooldown and routes to Priority 2 instantly.
               </p>
             </div>
 
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
-              <span class="text-xs font-semibold text-zinc-200">Weighted Round-Robin</span>
-              <p class="text-[11px] text-zinc-400 leading-relaxed">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
+              <span class="text-sm font-semibold text-zinc-200">Weighted Round-Robin</span>
+              <p class="text-xs text-zinc-400 leading-relaxed">
                 Distributes high-volume concurrency across all active accounts proportionally to their configured weights.
               </p>
             </div>
           </div>
 
-          <div class="p-2.5 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
+          <div class="p-3 rounded-lg bg-[#09090b] border border-white/[0.06] flex items-center justify-between text-xs text-zinc-400 font-mono">
             <span>Cooldown Recovery:</span>
             <span class="text-emerald-400">Automatic background ticker (1s)</span>
           </div>
@@ -985,34 +997,34 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- STEP 4: Secure Local Router Keys -->
         <div id="tour-step-4" class="tour-step hidden space-y-4">
-          <div class="space-y-1">
-            <h4 class="text-base font-semibold text-white">4. Secure Local Router Keys</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-1.5">
+            <h4 class="text-lg font-bold text-white">4. Secure Local Router Keys</h4>
+            <p class="text-sm text-zinc-300 leading-relaxed">
               Generate isolated local keys (<code class="font-mono text-zinc-300">slp-live-...</code>) for individual coding tools or automated agents.
             </p>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
               <div class="font-semibold text-zinc-200">Quota Limits</div>
-              <p class="text-[11px] text-zinc-500">Cap max requests or max tokens per key.</p>
+              <p class="text-xs text-zinc-400">Cap max requests or max tokens per key.</p>
             </div>
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
               <div class="font-semibold text-zinc-200">Model Scoping</div>
-              <p class="text-[11px] text-zinc-500">Restrict keys to specific models or providers.</p>
+              <p class="text-xs text-zinc-400">Restrict keys to specific models or providers.</p>
             </div>
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1">
               <div class="font-semibold text-zinc-200">Expiration</div>
-              <p class="text-[11px] text-zinc-500">Set 7-day, 30-day, or permanent tokens.</p>
+              <p class="text-xs text-zinc-400">Set 7-day, 30-day, or permanent tokens.</p>
             </div>
           </div>
 
-          <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
-            <span class="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">Example Bearer Header:</span>
-            <div class="flex items-center justify-between p-2 rounded bg-[#141418] border border-white/10 font-mono text-[11px]">
-              <code class="text-zinc-300">Authorization: Bearer slp-live-cursor-e9182ab47c8d901f</code>
-              <button class="btn-copy-snippet p-1 text-zinc-400 hover:text-white" data-snippet="Authorization: Bearer slp-live-cursor-e9182ab47c8d901f" title="Copy">
-                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
+            <span class="text-xs uppercase font-semibold text-zinc-400 tracking-wider">Example Bearer Header:</span>
+            <div class="flex items-center justify-between p-2.5 rounded bg-[#141418] border border-white/10 font-mono text-xs">
+              <code class="text-zinc-200 truncate mr-2">Authorization: Bearer slp-live-cursor-e9182ab47c8d901f</code>
+              <button class="btn-copy-snippet p-1.5 text-zinc-400 hover:text-white shrink-0" data-snippet="Authorization: Bearer slp-live-cursor-e9182ab47c8d901f" title="Copy">
+                <i data-lucide="copy" class="w-4 h-4"></i>
               </button>
             </div>
           </div>
@@ -1020,66 +1032,66 @@ Click "Send Chat Completion" to test routing to your configured providers.
 
         <!-- STEP 5: Connect Your AI Tools -->
         <div id="tour-step-5" class="tour-step hidden space-y-4">
-          <div class="space-y-1">
-            <h4 class="text-base font-semibold text-white">5. Connect Your AI Tools</h4>
-            <p class="text-xs text-zinc-400 leading-relaxed">
+          <div class="space-y-1.5">
+            <h4 class="text-lg font-bold text-white">5. Connect Your AI Tools</h4>
+            <p class="text-sm text-zinc-300 leading-relaxed">
               Copy and paste the configuration snippet for your primary coding environment:
             </p>
           </div>
 
           <!-- Tool Snippets Tabs / Accordion -->
-          <div class="space-y-2 text-xs">
+          <div class="space-y-2.5 text-sm">
 
             <!-- Claude Code -->
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
               <div class="flex items-center justify-between">
                 <span class="font-semibold text-zinc-200">Claude Code (Anthropic CLI)</span>
-                <button class="btn-copy-snippet px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-[11px] font-mono flex items-center gap-1" data-snippet="export ANTHROPIC_BASE_URL=http://localhost:8080/routerapi&#10;export ANTHROPIC_API_KEY=slp-live-demo">
-                  <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                <button class="btn-copy-snippet px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-xs font-mono flex items-center gap-1.5" data-snippet="export ANTHROPIC_BASE_URL=http://localhost:8080/routerapi&#10;export ANTHROPIC_API_KEY=slp-live-demo">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy
                 </button>
               </div>
-              <pre class="p-2 rounded bg-[#141418] border border-white/10 font-mono text-[11px] text-zinc-300 overflow-x-auto">export ANTHROPIC_BASE_URL=http://localhost:8080/routerapi
+              <pre class="p-2.5 rounded bg-[#141418] border border-white/10 font-mono text-xs text-zinc-300 overflow-x-auto">export ANTHROPIC_BASE_URL=http://localhost:8080/routerapi
 export ANTHROPIC_API_KEY=slp-live-demo</pre>
             </div>
 
             <!-- Cursor IDE -->
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
               <div class="flex items-center justify-between">
                 <span class="font-semibold text-zinc-200">Cursor IDE (OpenAI Override)</span>
-                <button class="btn-copy-snippet px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-[11px] font-mono flex items-center gap-1" data-snippet="http://localhost:8080/routerapi/v1">
-                  <i data-lucide="copy" class="w-3 h-3"></i> Copy URL
+                <button class="btn-copy-snippet px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-xs font-mono flex items-center gap-1.5" data-snippet="http://localhost:8080/routerapi/v1">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy URL
                 </button>
               </div>
-              <div class="p-2 rounded bg-[#141418] border border-white/10 font-mono text-[11px] text-zinc-300 space-y-1">
+              <div class="p-2.5 rounded bg-[#141418] border border-white/10 font-mono text-xs text-zinc-300 space-y-1">
                 <div>Base URL: <code class="text-white">http://localhost:8080/routerapi/v1</code></div>
                 <div>API Key: <code class="text-zinc-400">slp-live-demo (or any local key)</code></div>
               </div>
             </div>
 
             <!-- OpenCode / Codex -->
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
               <div class="flex items-center justify-between">
                 <span class="font-semibold text-zinc-200">OpenCode / Codex CLI</span>
-                <button class="btn-copy-snippet px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-[11px] font-mono flex items-center gap-1" data-snippet="export OPENCODE_BASE_URL=http://localhost:8080/routerapi/v1&#10;export OPENCODE_API_KEY=slp-live-demo">
-                  <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                <button class="btn-copy-snippet px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-xs font-mono flex items-center gap-1.5" data-snippet="export OPENCODE_BASE_URL=http://localhost:8080/routerapi/v1&#10;export OPENCODE_API_KEY=slp-live-demo">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy
                 </button>
               </div>
-              <pre class="p-2 rounded bg-[#141418] border border-white/10 font-mono text-[11px] text-zinc-300 overflow-x-auto">export OPENCODE_BASE_URL=http://localhost:8080/routerapi/v1
+              <pre class="p-2.5 rounded bg-[#141418] border border-white/10 font-mono text-xs text-zinc-300 overflow-x-auto">export OPENCODE_BASE_URL=http://localhost:8080/routerapi/v1
 export OPENCODE_API_KEY=slp-live-demo</pre>
             </div>
 
             <!-- cURL Request -->
-            <div class="p-3 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-1.5">
+            <div class="p-3.5 rounded-xl bg-[#09090b] border border-white/[0.08] space-y-2">
               <div class="flex items-center justify-between">
                 <span class="font-semibold text-zinc-200">cURL (Raw HTTP Request)</span>
-                <button class="btn-copy-snippet px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-[11px] font-mono flex items-center gap-1" data-snippet="curl -X POST http://localhost:8080/routerapi/v1/chat/completions \
+                <button class="btn-copy-snippet px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-white/10 text-xs font-mono flex items-center gap-1.5" data-snippet="curl -X POST http://localhost:8080/routerapi/v1/chat/completions \
   -H &quot;Content-Type: application/json&quot; \
   -H &quot;Authorization: Bearer slp-live-demo&quot; \
   -d '{&quot;model&quot;: &quot;default-model&quot;, &quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;}]}'">
-                  <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy
                 </button>
               </div>
-              <pre class="p-2 rounded bg-[#141418] border border-white/10 font-mono text-[11px] text-zinc-300 overflow-x-auto">curl -X POST http://localhost:8080/routerapi/v1/chat/completions \
+              <pre class="p-2.5 rounded bg-[#141418] border border-white/10 font-mono text-xs text-zinc-300 overflow-x-auto">curl -X POST http://localhost:8080/routerapi/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer slp-live-demo" \
   -d '{"model": "default-model", "messages": [{"role": "user", "content": "Hello"}]}'</pre>
@@ -1094,10 +1106,10 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
       <div class="pt-4 border-t border-white/[0.08] flex items-center justify-between">
         <!-- Dismiss checkbox & Skip -->
         <div class="flex items-center gap-3">
-          <button id="btn-tour-skip" class="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+          <button id="btn-tour-skip" class="text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
             Skip Tour
           </button>
-          <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer select-none">
+          <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
             <input type="checkbox" id="tour-dont-show" class="accent-white rounded cursor-pointer" />
             <span>Don't show again</span>
           </label>
@@ -1114,10 +1126,10 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
 
         <!-- Prev / Next Controls -->
         <div class="flex items-center gap-2">
-          <button id="btn-tour-prev" class="btn-secondary px-3 py-1.5 text-xs font-medium disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+          <button id="btn-tour-prev" class="btn-secondary px-3.5 py-2 text-sm font-medium min-h-[40px] disabled:opacity-30 disabled:cursor-not-allowed" disabled>
             Previous
           </button>
-          <button id="btn-tour-next" class="btn-primary px-4 py-1.5 text-xs font-medium">
+          <button id="btn-tour-next" class="btn-primary px-4 py-2 text-sm font-medium min-h-[40px]">
             Next
           </button>
         </div>
@@ -1133,22 +1145,22 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
     <div class="modal-dialog max-w-3xl w-full p-6 space-y-5 max-h-[90vh] flex flex-col">
       <div class="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <div>
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <i data-lucide="download-cloud" class="w-4 h-4 text-zinc-300"></i>
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="download-cloud" class="w-5 h-5 text-zinc-300"></i>
             <span>Provider Plugin Reference Templates</span>
           </h3>
-          <p class="text-xs text-zinc-400 mt-0.5">
+          <p class="text-sm text-zinc-400 mt-0.5">
             Select a reference template to install into your active plugins directory with 1-click.
           </p>
         </div>
-        <button class="modal-close p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button class="modal-close p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
       <!-- Search & Filters -->
       <div class="flex items-center justify-between gap-3">
-        <input type="text" id="filter-templates-search" placeholder="Search templates (e.g. OpenAI, Claude, Antigravity)..." class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-xs w-full focus:outline-none focus:border-white/30 placeholder:text-zinc-600 font-mono" />
+        <input type="text" id="filter-templates-search" placeholder="Search templates (e.g. OpenAI, Claude, Antigravity)..." class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2 text-sm w-full focus:outline-none focus:border-white/30 placeholder:text-zinc-600 font-mono min-h-[44px]" />
       </div>
 
       <!-- Template Grid List (scrollable) -->
@@ -1157,7 +1169,7 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
       </div>
 
       <div class="flex justify-end pt-3 border-t border-white/[0.08]">
-        <button type="button" class="modal-close btn-secondary px-4 py-2 text-xs font-medium">
+        <button type="button" class="modal-close btn-secondary px-5 py-2.5 text-sm font-medium min-h-[44px]">
           Close
         </button>
       </div>
@@ -1170,22 +1182,22 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
   <div id="modal-account" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
     <div class="modal-dialog max-w-lg w-full p-6 space-y-5">
       <div class="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-        <h3 id="modal-account-title" class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="user-plus" class="w-4 h-4 text-zinc-300"></i>
+        <h3 id="modal-account-title" class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-5 h-5 text-zinc-300"></i>
           <span>Add Provider Account</span>
         </h3>
-        <button class="modal-close p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button class="modal-close p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form id="form-account" class="space-y-4 text-xs">
+      <form id="form-account" class="space-y-4 text-sm">
         <input type="hidden" id="acc-id" />
 
         <!-- Provider Select -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Provider *</label>
-          <select id="acc-provider" required class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30">
+          <select id="acc-provider" required class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
             <!-- Populated dynamically -->
           </select>
         </div>
@@ -1193,15 +1205,15 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
         <!-- Account Name -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Account Name *</label>
-          <input type="text" id="acc-name" required placeholder="e.g. Primary Antigravity Pro, Team Backup Key" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30" />
+          <input type="text" id="acc-name" required placeholder="e.g. Primary Antigravity Pro, Team Backup Key" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]" />
         </div>
 
         <!-- API Key -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">API Key / Token</label>
           <div class="relative">
-            <input type="password" id="acc-api-key" placeholder="sk-..." class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:border-white/30 font-mono" />
-            <button type="button" id="btn-toggle-acc-key" class="absolute right-2.5 top-2.5 text-zinc-500 hover:text-white">
+            <input type="password" id="acc-api-key" placeholder="sk-..." class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 pr-10 focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
+            <button type="button" id="btn-toggle-acc-key" class="absolute right-3 top-3 text-zinc-500 hover:text-white">
               <i data-lucide="eye" class="w-4 h-4"></i>
             </button>
           </div>
@@ -1210,42 +1222,104 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
         <!-- Custom Base URL -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Custom Base URL (Optional)</label>
-          <input type="url" id="acc-base-url" placeholder="https://api.openai.com/v1 or custom proxy" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30 font-mono" />
+          <input type="url" id="acc-base-url" placeholder="https://api.openai.com/v1 or custom proxy" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
         </div>
 
-        <!-- Priority & Weight -->
-        <div class="grid grid-cols-2 gap-4">
+        <!-- Custom Models Override (Per-Account) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block font-medium text-zinc-300">Custom Models Override (Optional)</label>
+            <span class="text-xs text-zinc-400 font-mono">Per-account models</span>
+          </div>
+          <input type="text" id="acc-custom-models" placeholder="e.g. gpt-4o, gpt-4o-mini, o1 or JSON array" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
+          <p class="text-xs text-zinc-400 mt-1">Specify comma-separated model IDs or a JSON list to restrict or customize models supported by this account.</p>
+        </div>
+
+        <!-- Priority & Weight (Responsive single-column on mobile) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block font-medium text-zinc-300 mb-1">Priority (1 = Highest)</label>
-            <input type="number" id="acc-priority" value="1" min="1" max="100" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30 font-mono" />
+            <input type="number" id="acc-priority" value="1" min="1" max="100" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
           </div>
           <div>
             <label class="block font-medium text-zinc-300 mb-1">Weight (for Round-Robin)</label>
-            <input type="number" id="acc-weight" value="10" min="1" max="1000" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30 font-mono" />
+            <input type="number" id="acc-weight" value="10" min="1" max="1000" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
           </div>
         </div>
 
         <!-- Extra Headers JSON -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Extra Headers (JSON)</label>
-          <textarea id="acc-extra-headers" rows="2" placeholder='{"X-Custom-Auth": "value"}' class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-2 font-mono text-[11px] focus:outline-none focus:border-white/30 resize-none">{}</textarea>
+          <textarea id="acc-extra-headers" rows="2" placeholder='{"X-Custom-Auth": "value"}' class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-2.5 font-mono text-xs focus:outline-none focus:border-white/30 resize-none">{}</textarea>
         </div>
 
         <!-- Extra Config JSON -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Extra Config (JSON)</label>
-          <textarea id="acc-extra-config" rows="2" placeholder='{"quota_mode": "strict"}' class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-2 font-mono text-[11px] focus:outline-none focus:border-white/30 resize-none">{}</textarea>
+          <textarea id="acc-extra-config" rows="2" placeholder='{"quota_mode": "strict"}' class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg p-2.5 font-mono text-xs focus:outline-none focus:border-white/30 resize-none">{}</textarea>
         </div>
 
         <!-- Is Active Checkbox -->
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="acc-active" checked class="w-4 h-4 accent-white rounded cursor-pointer" />
+        <div class="flex items-center gap-2.5">
+          <input type="checkbox" id="acc-active" checked class="w-5 h-5 accent-white rounded cursor-pointer" />
           <label for="acc-active" class="font-medium text-zinc-300 cursor-pointer select-none">Account Enabled</label>
         </div>
 
-        <div class="flex justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
-          <button type="button" class="modal-close btn-secondary px-4 py-2 text-xs font-medium">Cancel</button>
-          <button type="submit" class="btn-primary px-4 py-2 text-xs font-medium">Save Account</button>
+        <div class="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+          <button type="button" class="modal-close btn-secondary px-5 py-2.5 text-sm font-medium min-h-[44px]">Cancel</button>
+          <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: ADD MODEL TO PROVIDER (Requirement 4) -->
+  <!-- ========================================================================= -->
+  <div id="modal-add-model" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="modal-dialog max-w-md w-full p-6 space-y-5">
+      <div class="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center">
+            <i data-lucide="cpu" class="w-5 h-5 text-zinc-300"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Add Supported Model</h3>
+            <p id="modal-add-model-provider-badge" class="text-xs text-zinc-400 font-mono">Provider: —</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-add-model" class="space-y-4 text-sm">
+        <input type="hidden" id="add-model-plugin-id" />
+
+        <div>
+          <label class="block font-medium text-zinc-300 mb-1">Model ID *</label>
+          <input type="text" id="add-model-id" required placeholder="e.g. gpt-4o, claude-3-5-sonnet, gemini-2.0-flash" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono text-sm focus:outline-none focus:border-white/30 min-h-[44px]" />
+        </div>
+
+        <div>
+          <label class="block font-medium text-zinc-300 mb-1">Display Name *</label>
+          <input type="text" id="add-model-name" required placeholder="e.g. GPT-4o (Omni), Claude 3.5 Sonnet" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-white/30 min-h-[44px]" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-medium text-zinc-300 mb-1">Context Window</label>
+            <input type="number" id="add-model-context" placeholder="128000" min="1000" step="1000" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono text-sm focus:outline-none focus:border-white/30 min-h-[44px]" />
+          </div>
+          <div>
+            <label class="block font-medium text-zinc-300 mb-1">Max Output Tokens</label>
+            <input type="number" id="add-model-output" placeholder="4096" min="256" step="256" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono text-sm focus:outline-none focus:border-white/30 min-h-[44px]" />
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+          <button type="button" class="modal-close btn-secondary px-5 py-2.5 text-sm font-medium min-h-[44px]">Cancel</button>
+          <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">Add Model</button>
         </div>
       </form>
     </div>
@@ -1258,24 +1332,24 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
     <div class="modal-dialog max-w-md w-full p-6 space-y-5">
       <div class="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="key" class="w-4 h-4 text-zinc-300"></i>
+          <i data-lucide="key" class="w-5 h-5 text-zinc-300"></i>
           <span>Generate Router API Key</span>
         </h3>
-        <button class="modal-close p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button class="modal-close p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form id="form-key-gen" class="space-y-4 text-xs">
+      <form id="form-key-gen" class="space-y-4 text-sm">
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Key Name *</label>
-          <input type="text" id="keygen-name" required placeholder="e.g. Cursor IDE, Claude Code, Agent 1" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30" />
+          <input type="text" id="keygen-name" required placeholder="e.g. Cursor IDE, Claude Code, Agent 1" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]" />
         </div>
 
         <!-- Expiration Preset -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Expiration</label>
-          <select id="keygen-expires" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30">
+          <select id="keygen-expires" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
             <option value="never">Never (Persistent)</option>
             <option value="7d">7 Days</option>
             <option value="30d">30 Days</option>
@@ -1283,26 +1357,26 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
           </select>
         </div>
 
-        <!-- Limits -->
-        <div class="grid grid-cols-2 gap-4">
+        <!-- Limits (Responsive single-column on mobile) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block font-medium text-zinc-300 mb-1">Max Requests Limit</label>
-            <input type="number" id="keygen-max-reqs" placeholder="Unlimited" min="1" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30 font-mono" />
+            <input type="number" id="keygen-max-reqs" placeholder="Unlimited" min="1" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
           </div>
           <div>
             <label class="block font-medium text-zinc-300 mb-1">Max Tokens Limit</label>
-            <input type="number" id="keygen-max-tokens" placeholder="Unlimited" min="1000" step="1000" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30 font-mono" />
+            <input type="number" id="keygen-max-tokens" placeholder="Unlimited" min="1000" step="1000" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 font-mono min-h-[44px]" />
           </div>
         </div>
 
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Allowed Models (Comma separated or * for all)</label>
-          <input type="text" id="keygen-models" value="*" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-white/30" />
+          <input type="text" id="keygen-models" value="*" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono focus:outline-none focus:border-white/30 min-h-[44px]" />
         </div>
 
-        <div class="flex justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
-          <button type="button" class="modal-close btn-secondary px-4 py-2 text-xs font-medium">Cancel</button>
-          <button type="submit" class="btn-primary px-4 py-2 text-xs font-medium">Create Key</button>
+        <div class="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+          <button type="button" class="modal-close btn-secondary px-5 py-2.5 text-sm font-medium min-h-[44px]">Cancel</button>
+          <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">Create Key</button>
         </div>
       </form>
     </div>
@@ -1313,30 +1387,30 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
   <!-- ========================================================================= -->
   <div id="modal-key-display" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
     <div class="modal-dialog max-w-lg w-full p-6 space-y-5">
-      <div class="flex items-center gap-3">
-        <div class="p-2.5 rounded-xl bg-zinc-900 text-zinc-200 border border-white/10">
-          <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+      <div class="flex items-center gap-3.5">
+        <div class="p-3 rounded-xl bg-zinc-900 text-zinc-200 border border-white/10">
+          <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-400"></i>
         </div>
         <div>
           <h3 class="text-base font-bold text-white">Router API Key Generated</h3>
-          <p class="text-xs text-zinc-400">Save this secret key. It will not be shown again.</p>
+          <p class="text-sm text-zinc-400">Save this secret key. It will not be shown again.</p>
         </div>
       </div>
 
-      <div class="p-3 bg-[#09090b] rounded-lg border border-white/10 flex items-center justify-between gap-3">
-        <code id="display-raw-token" class="font-mono text-zinc-200 text-xs break-all select-all">slp-live-...</code>
-        <button id="btn-copy-generated-token" class="btn-secondary p-2 shrink-0" title="Copy to clipboard">
+      <div class="p-3.5 bg-[#09090b] rounded-lg border border-white/10 flex items-center justify-between gap-3">
+        <code id="display-raw-token" class="font-mono text-zinc-200 text-sm break-all select-all">slp-live-...</code>
+        <button id="btn-copy-generated-token" class="btn-secondary p-2.5 shrink-0 min-h-[40px] min-w-[40px]" title="Copy to clipboard">
           <i data-lucide="copy" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <div class="p-3 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 text-xs flex items-start gap-2">
+      <div class="p-3.5 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 text-sm flex items-start gap-2.5">
         <i data-lucide="shield" class="w-4 h-4 text-zinc-300 shrink-0 mt-0.5"></i>
         <span>Client applications should pass this key via <code class="font-mono text-zinc-200">Authorization: Bearer slp-live-...</code></span>
       </div>
 
       <div class="flex justify-end pt-2">
-        <button class="modal-close btn-primary px-4 py-2 text-xs font-medium">
+        <button class="modal-close btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">
           I Have Saved My Key
         </button>
       </div>
@@ -1350,28 +1424,28 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
     <div class="modal-dialog max-w-md w-full p-6 space-y-5">
       <div class="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="plus-circle" class="w-4 h-4 text-zinc-300"></i>
+          <i data-lucide="plus-circle" class="w-5 h-5 text-zinc-300"></i>
           <span>Create New Provider Plugin</span>
         </h3>
-        <button class="modal-close p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button class="modal-close p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <form id="form-create-plugin" class="space-y-4 text-xs">
+      <form id="form-create-plugin" class="space-y-4 text-sm">
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Plugin ID (Unique identifier) *</label>
-          <input type="text" id="new-plugin-id" required pattern="[a-z0-9_-]+" placeholder="e.g. custom_llm" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-white/30" />
+          <input type="text" id="new-plugin-id" required pattern="[a-z0-9_-]+" placeholder="e.g. custom_llm" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono focus:outline-none focus:border-white/30 min-h-[44px]" />
         </div>
 
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Provider Display Name *</label>
-          <input type="text" id="new-plugin-name" required placeholder="e.g. My Custom Provider" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30" />
+          <input type="text" id="new-plugin-name" required placeholder="e.g. My Custom Provider" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]" />
         </div>
 
         <div>
           <label class="block font-medium text-zinc-300 mb-1">API Protocol Format</label>
-          <select id="new-plugin-format" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-white/30">
+          <select id="new-plugin-format" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
             <option value="openai">OpenAI Compatible (/v1/chat/completions)</option>
             <option value="anthropic">Anthropic Compatible (/v1/messages)</option>
           </select>
@@ -1379,20 +1453,61 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
 
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Default Base URL</label>
-          <input type="url" id="new-plugin-url" placeholder="https://api.example.com/v1" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 font-mono focus:outline-none focus:border-white/30" />
+          <input type="url" id="new-plugin-url" placeholder="https://api.example.com/v1" class="w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono focus:outline-none focus:border-white/30 min-h-[44px]" />
         </div>
 
-        <div class="flex justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
-          <button type="button" class="modal-close btn-secondary px-4 py-2 text-xs font-medium">Cancel</button>
-          <button type="submit" class="btn-primary px-4 py-2 text-xs font-medium">Create &amp; Open in Editor</button>
+        <div class="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+          <button type="button" class="modal-close btn-secondary px-5 py-2.5 text-sm font-medium min-h-[44px]">Cancel</button>
+          <button type="submit" class="btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">Create &amp; Open in Editor</button>
         </div>
       </form>
     </div>
   </div>
 
+  <!-- ========================================================================= -->
+  <!-- MODAL: OBSIDIAN CONFIRMATION (REPLACES BROWSER CONFIRM) -->
+  <!-- ========================================================================= -->
+  <div id="modal-confirm" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="modal-dialog max-w-md w-full p-6 space-y-5 animate-in">
+      <div class="flex items-start gap-3.5">
+        <div id="modal-confirm-icon-box" class="w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+          <i id="modal-confirm-icon" data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>
+        </div>
+        <div class="space-y-1.5 flex-1">
+          <h3 id="modal-confirm-title" class="text-base font-bold text-white tracking-tight">Confirm Action</h3>
+          <p id="modal-confirm-message" class="text-sm text-zinc-300 leading-relaxed">Are you sure you want to proceed?</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/[0.08]">
+        <button type="button" id="modal-confirm-btn-cancel" class="btn-secondary px-4 py-2.5 text-sm font-medium min-h-[44px]">Cancel</button>
+        <button type="button" id="modal-confirm-btn-confirm" class="btn-danger px-4 py-2.5 text-sm font-medium min-h-[44px]">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: OBSIDIAN ALERT (REPLACES BROWSER ALERT) -->
+  <!-- ========================================================================= -->
+  <div id="modal-alert" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+    <div class="modal-dialog max-w-md w-full p-6 space-y-5">
+      <div class="flex items-start gap-3.5">
+        <div id="modal-alert-icon-box" class="w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+          <i id="modal-alert-icon" data-lucide="info" class="w-5 h-5 text-zinc-300"></i>
+        </div>
+        <div class="space-y-1.5 flex-1">
+          <h3 id="modal-alert-title" class="text-base font-bold text-white tracking-tight">Notification</h3>
+          <p id="modal-alert-message" class="text-sm text-zinc-300 leading-relaxed"></p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end pt-3 border-t border-white/[0.08]">
+        <button type="button" id="modal-alert-btn-ok" class="btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
-  <footer class="border-t border-white/[0.08] bg-[#0d0d10] px-4 py-4 text-center text-xs text-zinc-500">
-    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px]">
+  <footer class="border-t border-white/[0.08] bg-[#0d0d10] px-4 py-4 text-center text-sm text-zinc-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-xs">
       <div class="flex items-center gap-2">
         <span class="font-bold text-zinc-300">SLProxy</span>
         <span>•</span>

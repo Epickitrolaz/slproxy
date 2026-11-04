@@ -175,14 +175,14 @@ class CustomProviderPlugin(BasePlugin):
   };
 
   // ---------------------------------------------------------------------------
-  // TOAST NOTIFICATIONS (Calm Monochrome / Obsidian)
+  // TOAST NOTIFICATIONS & OBSIDIAN DIALOGS (Zero Native Prompts)
   // ---------------------------------------------------------------------------
   function showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
     const toast = document.createElement('div');
-    toast.className = 'toast flex items-start gap-3 p-3 text-xs font-medium border transition-all';
+    toast.className = 'toast flex items-start gap-3 p-3.5 text-sm font-medium border transition-all';
 
     let icon = 'info';
     let iconClass = 'text-zinc-400';
@@ -206,8 +206,8 @@ class CustomProviderPlugin(BasePlugin):
     }
 
     toast.innerHTML = `
-      <i data-lucide="${icon}" class="w-4 h-4 shrink-0 mt-0.5 ${iconClass}"></i>
-      <div class="flex-1 text-zinc-200">${message}</div>
+      <i data-lucide="${icon}" class="w-5 h-5 shrink-0 mt-0.5 ${iconClass}"></i>
+      <div class="flex-1 text-zinc-200 leading-snug">${message}</div>
     `;
 
     container.appendChild(toast);
@@ -219,6 +219,148 @@ class CustomProviderPlugin(BasePlugin):
       setTimeout(() => toast.remove(), 250);
     }, duration);
   }
+
+  function showConfirmModal({
+    title = 'Confirm Action',
+    message = 'Are you sure you want to proceed?',
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    danger = true,
+    icon = 'alert-triangle'
+  } = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('modal-confirm');
+      const titleEl = document.getElementById('modal-confirm-title');
+      const messageEl = document.getElementById('modal-confirm-message');
+      const btnConfirm = document.getElementById('modal-confirm-btn-confirm');
+      const btnCancel = document.getElementById('modal-confirm-btn-cancel');
+      const iconEl = document.getElementById('modal-confirm-icon');
+      const iconBox = document.getElementById('modal-confirm-icon-box');
+
+      if (!modal || !btnConfirm || !btnCancel) {
+        resolve(true);
+        return;
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (messageEl) messageEl.textContent = message;
+
+      if (btnConfirm) {
+        btnConfirm.textContent = confirmText;
+        btnConfirm.className = danger
+          ? 'btn-danger px-5 py-2.5 text-sm font-medium min-h-[44px]'
+          : 'btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]';
+      }
+      if (btnCancel) btnCancel.textContent = cancelText;
+
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', danger ? 'alert-triangle' : icon);
+        if (iconBox) {
+          iconBox.className = danger
+            ? 'w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 mt-0.5'
+            : 'w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center shrink-0 mt-0.5';
+        }
+        iconEl.className = danger ? 'w-5 h-5 text-rose-400' : 'w-5 h-5 text-zinc-300';
+      }
+
+      if (window.lucide) window.lucide.createIcons();
+      modal.classList.remove('hidden');
+
+      function cleanup(res) {
+        modal.classList.add('hidden');
+        btnConfirm.removeEventListener('click', onConfirm);
+        btnCancel.removeEventListener('click', onCancel);
+        document.removeEventListener('keydown', onKey);
+        resolve(res);
+      }
+
+      function onConfirm() {
+        cleanup(true);
+      }
+      function onCancel() {
+        cleanup(false);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') cleanup(false);
+      }
+
+      btnConfirm.addEventListener('click', onConfirm);
+      btnCancel.addEventListener('click', onCancel);
+      document.addEventListener('keydown', onKey);
+    });
+  }
+
+  function showAlertModal({
+    title = 'Notification',
+    message = '',
+    type = 'info'
+  } = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('modal-alert');
+      const titleEl = document.getElementById('modal-alert-title');
+      const messageEl = document.getElementById('modal-alert-message');
+      const btnOk = document.getElementById('modal-alert-btn-ok');
+      const iconEl = document.getElementById('modal-alert-icon');
+      const iconBox = document.getElementById('modal-alert-icon-box');
+
+      if (!modal || !btnOk) {
+        showToast(message, type);
+        resolve();
+        return;
+      }
+
+      if (titleEl) titleEl.textContent = title;
+      if (messageEl) messageEl.textContent = message;
+
+      if (iconEl) {
+        const iconName = type === 'error' ? 'alert-octagon' : type === 'warning' ? 'alert-triangle' : 'info';
+        iconEl.setAttribute('data-lucide', iconName);
+        if (iconBox) {
+          iconBox.className = type === 'error'
+            ? 'w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 mt-0.5'
+            : type === 'warning'
+            ? 'w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5'
+            : 'w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center shrink-0 mt-0.5';
+        }
+        iconEl.className = type === 'error' ? 'w-5 h-5 text-rose-400' : type === 'warning' ? 'w-5 h-5 text-amber-400' : 'w-5 h-5 text-zinc-300';
+      }
+
+      if (window.lucide) window.lucide.createIcons();
+      modal.classList.remove('hidden');
+
+      function cleanup() {
+        modal.classList.add('hidden');
+        btnOk.removeEventListener('click', onOk);
+        document.removeEventListener('keydown', onKey);
+        resolve();
+      }
+
+      function onOk() {
+        cleanup();
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') cleanup();
+      }
+
+      btnOk.addEventListener('click', onOk);
+      document.addEventListener('keydown', onKey);
+    });
+  }
+
+  // Intercept any accidental browser-native prompts to maintain Obsidian design
+  window.confirm = function (msg) {
+    console.warn('Native confirm() intercepted; use showConfirmModal instead.');
+    showConfirmModal({ title: 'Confirmation', message: String(msg) });
+    return false;
+  };
+  window.alert = function (msg) {
+    console.warn('Native alert() intercepted; use showAlertModal instead.');
+    showAlertModal({ title: 'Alert', message: String(msg) });
+  };
+  window.prompt = function () {
+    console.warn('Native prompt() intercepted.');
+    return null;
+  };
 
   // ---------------------------------------------------------------------------
   // QUICK SETUP TOUR (5 STEPS INTERACTIVE MODAL)
@@ -810,11 +952,25 @@ class CustomProviderPlugin(BasePlugin):
       });
     }
 
-    // Modal close buttons
+    // Modal close buttons & backdrop click to close
     document.querySelectorAll('.modal-close').forEach((btn) => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.modal-backdrop').forEach((m) => m.classList.add('hidden'));
       });
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+          backdrop.classList.add('hidden');
+        }
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-backdrop').forEach((m) => m.classList.add('hidden'));
+      }
     });
 
     // All triggers for "Code Custom Plugin"
@@ -994,48 +1150,68 @@ class CustomProviderPlugin(BasePlugin):
       const card = document.createElement('div');
       card.className = 'glass-panel p-5 rounded-xl space-y-4';
 
-      const modelsTags = (plugin.models || [])
-        .slice(0, 3)
-        .map((m) => `<span class="px-1.5 py-0.5 rounded bg-[#09090b] border border-white/10 font-mono text-[10px] text-zinc-300">${m.id || m}</span>`)
-        .join(' ');
-
-      const moreModels = (plugin.models || []).length > 3 ? `<span class="text-[10px] text-zinc-500 font-mono">+${plugin.models.length - 3} more</span>` : '';
+      const modelsList = plugin.models || [];
+      const modelsHtml = modelsList.length > 0
+        ? modelsList.map((m) => {
+            const mId = typeof m === 'object' ? (m.id || m.name) : m;
+            const mName = typeof m === 'object' && m.name && m.name !== mId ? m.name : '';
+            return `
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#09090b] border border-white/10 font-mono text-xs text-zinc-200">
+                <span>${mId}</span>
+                ${mName ? `<span class="text-[11px] text-zinc-400 font-sans">(${mName})</span>` : ''}
+                <button type="button" class="btn-delete-model text-zinc-500 hover:text-rose-400 p-0.5 rounded transition-colors ml-0.5 focus:outline-none" data-plugin-id="${plugin.id}" data-model-id="${mId}" title="Remove model ${mId}">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </span>
+            `;
+          }).join('')
+        : '<span class="text-xs text-zinc-500 font-mono italic">No models registered — click Add Model</span>';
 
       card.innerHTML = `
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-[#09090b] border border-white/10 flex items-center justify-center font-bold text-zinc-200">
+            <div class="w-10 h-10 rounded-lg bg-[#09090b] border border-white/10 flex items-center justify-center font-bold text-zinc-200 shrink-0">
               <i data-lucide="${plugin.icon || 'cpu'}" class="w-5 h-5"></i>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
                 <span>${plugin.name}</span>
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10">v${plugin.version || '1.0.0'}</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10">v${plugin.version || '1.0.0'}</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10 uppercase">${plugin.format || 'OPENAI'}</span>
               </h3>
-              <p class="text-[11px] text-zinc-400 line-clamp-1">${plugin.description || ''}</p>
+              <p class="text-sm text-zinc-400 line-clamp-1 mt-0.5">${plugin.description || ''}</p>
             </div>
           </div>
           <label class="relative inline-flex items-center cursor-pointer shrink-0">
             <input type="checkbox" class="sr-only peer plugin-toggle" data-plugin-id="${plugin.id}" ${plugin.enabled !== false ? 'checked' : ''}>
-            <div class="w-8 h-4 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-zinc-200"></div>
+            <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-200"></div>
           </label>
         </div>
 
-        <div class="space-y-1.5 pt-1">
-          <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 block">Models:</span>
-          <div class="flex flex-wrap items-center gap-1.5">
-            ${modelsTags || '<span class="text-[10px] text-zinc-500 font-mono">Dynamic</span>'} ${moreModels}
+        <div class="space-y-2 pt-2 border-t border-white/[0.06]">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <span>Supported Models</span>
+              <span class="text-zinc-500 font-mono text-[11px]">(${modelsList.length})</span>
+            </span>
+            <button type="button" class="btn-add-model-trigger btn-secondary px-2.5 py-1 text-xs font-medium flex items-center gap-1.5 min-h-[32px] sm:min-h-[30px]" data-plugin-id="${plugin.id}" data-plugin-name="${plugin.name}">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Add Model</span>
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 pt-1">
+            ${modelsHtml}
           </div>
         </div>
 
         <div class="flex items-center justify-between pt-3 border-t border-white/[0.06] text-xs">
-          <span class="font-mono text-[11px] text-zinc-500">${plugin.id}.py</span>
+          <span class="font-mono text-xs text-zinc-400">${plugin.id}.py</span>
           <div class="flex items-center gap-2">
-            <button class="btn-secondary px-2.5 py-1 text-xs font-medium btn-edit-plugin-code" data-plugin-id="${plugin.id}">
+            <button class="btn-secondary px-3.5 py-1.5 text-xs font-medium btn-edit-plugin-code min-h-[36px]" data-plugin-id="${plugin.id}">
               Edit Code
             </button>
-            <button class="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 transition-colors btn-delete-plugin" data-plugin-id="${plugin.id}" title="Delete Plugin">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <button class="p-2 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors btn-delete-plugin min-w-[36px] min-h-[36px] flex items-center justify-center" data-plugin-id="${plugin.id}" title="Delete Plugin">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
@@ -1058,6 +1234,37 @@ class CustomProviderPlugin(BasePlugin):
       });
     });
 
+    // Add model button listener
+    container.querySelectorAll('.btn-add-model-trigger').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pId = btn.getAttribute('data-plugin-id');
+        const pName = btn.getAttribute('data-plugin-name') || pId;
+        openAddModelModal(pId, pName);
+      });
+    });
+
+    // Delete individual model listener
+    container.querySelectorAll('.btn-delete-model').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pId = btn.getAttribute('data-plugin-id');
+        const mId = btn.getAttribute('data-model-id');
+        const plugin = state.plugins.find((x) => x.id === pId);
+        const pName = plugin ? plugin.name : pId;
+
+        const confirmed = await showConfirmModal({
+          title: 'Delete Supported Model',
+          message: `Remove model '${mId}' from provider '${pName}'? Requests targeting this model will no longer route to this provider.`,
+          confirmText: 'Remove Model',
+          danger: true
+        });
+
+        if (confirmed) {
+          await handleDeleteModel(pId, mId);
+        }
+      });
+    });
+
     // Edit code listener
     container.querySelectorAll('.btn-edit-plugin-code').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1070,18 +1277,121 @@ class CustomProviderPlugin(BasePlugin):
     container.querySelectorAll('.btn-delete-plugin').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const pId = btn.getAttribute('data-plugin-id');
-        if (confirm(`Delete plugin '${pId}.py'? This will remove it from active rotation.`)) {
+        const confirmed = await showConfirmModal({
+          title: 'Delete Provider Plugin',
+          message: `Delete plugin '${pId}.py'? This will remove it from active proxy rotation.`,
+          confirmText: 'Delete Plugin',
+          danger: true
+        });
+
+        if (confirmed) {
           state.plugins = state.plugins.filter((x) => x.id !== pId);
           await fetch(`/api/plugins/${pId}`, { method: 'DELETE' }).catch(() => null);
           showToast(`Plugin '${pId}' deleted`, 'info');
           populateEditorPluginDropdown();
           renderPluginsList();
           renderDashboard();
+          setupPlayground();
         }
       });
     });
 
     if (window.lucide) window.lucide.createIcons();
+  }
+
+  // Handle Model Deletion (Requirement 4)
+  async function handleDeleteModel(pluginId, modelId) {
+    const plugin = state.plugins.find((p) => p.id === pluginId);
+    if (!plugin) return;
+
+    // Send DELETE to backend API: /api/plugins/{id}/models/{model_id}
+    await fetch(`/api/plugins/${pluginId}/models/${encodeURIComponent(modelId)}`, {
+      method: 'DELETE'
+    }).catch(() => null);
+
+    // Update in-memory state
+    if (plugin.models) {
+      plugin.models = plugin.models.filter((m) => {
+        const id = typeof m === 'object' ? (m.id || m.name) : m;
+        return id !== modelId;
+      });
+    }
+
+    showToast(`Model '${modelId}' removed from ${plugin.name}`, 'info');
+    renderPluginsList();
+    renderDashboard();
+    setupPlayground();
+  }
+
+  // Open Add Model Modal (Requirement 4)
+  function openAddModelModal(pluginId, pluginName) {
+    const modal = document.getElementById('modal-add-model');
+    const form = document.getElementById('form-add-model');
+    const badge = document.getElementById('modal-add-model-provider-badge');
+    const hiddenInput = document.getElementById('add-model-plugin-id');
+
+    if (!modal) return;
+    if (form) form.reset();
+
+    if (badge) badge.textContent = `Provider: ${pluginName} (${pluginId})`;
+    if (hiddenInput) hiddenInput.value = pluginId;
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('add-model-id')?.focus();
+    }, 100);
+  }
+
+  // Setup Add Model Modal Form Submission (Requirement 4)
+  function setupAddModelModal() {
+    const form = document.getElementById('form-add-model');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pluginId = document.getElementById('add-model-plugin-id').value;
+      const modelId = document.getElementById('add-model-id').value.trim();
+      const modelName = document.getElementById('add-model-name').value.trim() || modelId;
+      const contextVal = document.getElementById('add-model-context').value;
+      const outputVal = document.getElementById('add-model-output').value;
+
+      const contextWindow = contextVal ? parseInt(contextVal, 10) : 128000;
+      const maxOutputTokens = outputVal ? parseInt(outputVal, 10) : 4096;
+
+      const newModel = {
+        id: modelId,
+        name: modelName,
+        context_window: contextWindow,
+        max_output_tokens: maxOutputTokens
+      };
+
+      // POST to backend API: /api/plugins/{id}/models
+      await fetch(`/api/plugins/${pluginId}/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newModel)
+      }).catch(() => null);
+
+      // Update in-memory state
+      const plugin = state.plugins.find((p) => p.id === pluginId);
+      if (plugin) {
+        if (!Array.isArray(plugin.models)) {
+          plugin.models = [];
+        }
+        const existingIdx = plugin.models.findIndex((m) => (typeof m === 'object' ? (m.id || m.name) : m) === modelId);
+        if (existingIdx >= 0) {
+          plugin.models[existingIdx] = newModel;
+        } else {
+          plugin.models.push(newModel);
+        }
+      }
+
+      document.getElementById('modal-add-model').classList.add('hidden');
+      showToast(`Model '${modelName}' added to ${plugin ? plugin.name : pluginId}!`, 'success');
+      renderPluginsList();
+      renderDashboard();
+      setupPlayground();
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1111,10 +1421,10 @@ class CustomProviderPlugin(BasePlugin):
 
     if (filteredAccounts.length === 0) {
       container.innerHTML = `
-        <div class="glass-panel p-8 rounded-xl text-center space-y-3">
-          <i data-lucide="users" class="w-8 h-8 text-zinc-500 mx-auto"></i>
-          <p class="text-xs text-zinc-400 font-medium">No provider accounts configured yet.</p>
-          <button id="btn-empty-add-account" class="btn-primary px-4 py-2 text-xs font-medium">Add Account</button>
+        <div class="glass-panel p-8 rounded-xl text-center space-y-4">
+          <i data-lucide="users" class="w-10 h-10 text-zinc-500 mx-auto"></i>
+          <p class="text-sm text-zinc-300 font-medium">No provider accounts configured yet.</p>
+          <button id="btn-empty-add-account" class="btn-primary px-5 py-2.5 text-sm font-medium min-h-[44px]">Add Account</button>
         </div>
       `;
       const btn = document.getElementById('btn-empty-add-account');
@@ -1135,37 +1445,60 @@ class CustomProviderPlugin(BasePlugin):
       const isRateLimited = acc.rate_limited_until && acc.rate_limited_until > now;
       const cooldownRemaining = isRateLimited ? Math.ceil(acc.rate_limited_until - now) : 0;
 
-      let statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-900 text-zinc-300 border border-white/10 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span> Active</span>`;
+      let statusBadge = `<span class="px-2.5 py-1 rounded-md text-xs font-mono bg-zinc-900 text-zinc-200 border border-white/10 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span> Active</span>`;
       if (isRateLimited) {
-        statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/40 text-amber-300 border border-amber-500/20 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 pulse-dot-amber"></span> Cooldown (${cooldownRemaining}s)</span>`;
+        statusBadge = `<span class="px-2.5 py-1 rounded-md text-xs font-mono bg-amber-950/40 text-amber-300 border border-amber-500/20 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 pulse-dot-amber"></span> Cooldown (${cooldownRemaining}s)</span>`;
       } else if (!acc.is_active) {
-        statusBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-900 text-zinc-500 border border-white/10">Disabled</span>`;
+        statusBadge = `<span class="px-2.5 py-1 rounded-md text-xs font-mono bg-zinc-900 text-zinc-500 border border-white/10">Disabled</span>`;
       }
 
       const maskedKey = acc.api_key ? (acc.api_key.length > 8 ? `${acc.api_key.substring(0, 4)}••••${acc.api_key.substring(acc.api_key.length - 4)}` : '••••••••') : 'No Key';
 
+      // Parse custom models override from extra_config
+      let customModels = [];
+      if (acc.extra_config && acc.extra_config.models) {
+        if (Array.isArray(acc.extra_config.models)) {
+          customModels = acc.extra_config.models;
+        } else if (typeof acc.extra_config.models === 'string') {
+          try {
+            const parsed = JSON.parse(acc.extra_config.models);
+            if (Array.isArray(parsed)) customModels = parsed;
+            else customModels = acc.extra_config.models.split(',').map((s) => s.trim()).filter(Boolean);
+          } catch (_) {
+            customModels = acc.extra_config.models.split(',').map((s) => s.trim()).filter(Boolean);
+          }
+        }
+      }
+
+      const modelsOverrideHtml = customModels.length > 0
+        ? `<div class="pt-2 border-t border-white/[0.06] flex flex-wrap items-center gap-1.5 text-xs font-mono">
+            <span class="text-zinc-400 font-sans text-xs">Models Override:</span>
+            ${customModels.map((m) => `<span class="px-2 py-0.5 rounded bg-[#09090b] border border-white/10 text-zinc-200 text-xs">${m}</span>`).join(' ')}
+          </div>`
+        : '';
+
       const card = document.createElement('div');
-      card.className = 'glass-panel p-4 rounded-xl space-y-3';
+      card.className = 'glass-panel p-5 rounded-xl space-y-3.5';
       card.innerHTML = `
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-[#09090b] border border-white/10 flex items-center justify-center font-bold text-xs text-zinc-300">
-              <i data-lucide="${plugin.icon || 'server'}" class="w-4 h-4"></i>
+            <span class="w-10 h-10 rounded-lg bg-[#09090b] border border-white/10 flex items-center justify-center font-bold text-sm text-zinc-200 shrink-0">
+              <i data-lucide="${plugin.icon || 'server'}" class="w-5 h-5"></i>
             </span>
             <div>
               <div class="flex items-center gap-2">
-                <h4 class="text-sm font-bold text-white">${acc.name}</h4>
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#09090b] text-zinc-400 border border-white/10">${plugin.name}</span>
+                <h4 class="text-base font-bold text-white">${acc.name}</h4>
+                <span class="px-2 py-0.5 rounded text-xs font-mono bg-[#09090b] text-zinc-400 border border-white/10">${plugin.name}</span>
               </div>
-              <p class="text-xs font-mono text-zinc-500 mt-0.5">${acc.base_url || 'Default Endpoint'}</p>
+              <p class="text-xs font-mono text-zinc-400 mt-0.5">${acc.base_url || 'Default Endpoint'}</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             ${statusBadge}
             ${
               isRateLimited
-                ? `<button class="btn-reset-cooldown btn-secondary px-2.5 py-1 text-xs font-mono text-amber-300 flex items-center gap-1" data-account-id="${acc.id}">
-                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                ? `<button class="btn-reset-cooldown btn-secondary px-3 py-1.5 text-xs font-mono text-amber-300 flex items-center gap-1.5 min-h-[36px]" data-account-id="${acc.id}">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                     <span>Reset Cooldown</span>
                   </button>`
                 : ''
@@ -1173,28 +1506,30 @@ class CustomProviderPlugin(BasePlugin):
           </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/[0.06] text-xs font-mono">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-white/[0.06] text-xs font-mono">
           <div>
-            <span class="text-zinc-500 text-[10px] block uppercase font-sans">API Key</span>
-            <span class="text-zinc-300">${maskedKey}</span>
+            <span class="text-zinc-400 text-xs block uppercase font-sans tracking-wide">API Key</span>
+            <span class="text-zinc-200">${maskedKey}</span>
           </div>
           <div>
-            <span class="text-zinc-500 text-[10px] block uppercase font-sans">Priority / Weight</span>
-            <span class="text-zinc-300">Priority ${acc.priority} • Weight ${acc.weight}</span>
+            <span class="text-zinc-400 text-xs block uppercase font-sans tracking-wide">Priority / Weight</span>
+            <span class="text-zinc-200">Priority ${acc.priority} • Weight ${acc.weight}</span>
           </div>
           <div>
-            <span class="text-zinc-500 text-[10px] block uppercase font-sans">Success / Error</span>
+            <span class="text-zinc-400 text-xs block uppercase font-sans tracking-wide">Success / Error</span>
             <span class="text-emerald-400">${acc.success_count || 0} ok</span> / <span class="text-rose-400">${acc.error_count || 0} err</span>
           </div>
-          <div class="flex items-center justify-end gap-1.5 font-sans">
-            <button class="btn-edit-account btn-secondary p-1.5 text-zinc-300 hover:text-white" data-account-id="${acc.id}" title="Edit Account">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+          <div class="flex items-center justify-end gap-2 font-sans">
+            <button class="btn-edit-account btn-secondary p-2 text-zinc-300 hover:text-white min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg" data-account-id="${acc.id}" title="Edit Account">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
             </button>
-            <button class="btn-delete-account btn-secondary p-1.5 text-zinc-500 hover:text-rose-400" data-account-id="${acc.id}" title="Delete Account">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <button class="btn-delete-account btn-secondary p-2 text-zinc-400 hover:text-rose-400 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg" data-account-id="${acc.id}" title="Delete Account">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
+
+        ${modelsOverrideHtml}
       `;
 
       container.appendChild(card);
@@ -1228,7 +1563,15 @@ class CustomProviderPlugin(BasePlugin):
     container.querySelectorAll('.btn-delete-account').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const accId = btn.getAttribute('data-account-id');
-        if (confirm('Delete this provider account?')) {
+        const acc = state.accounts.find((a) => a.id === accId);
+        const confirmed = await showConfirmModal({
+          title: 'Delete Account',
+          message: `Delete provider account '${acc ? acc.name : accId}'? This will remove credentials from proxy rotation.`,
+          confirmText: 'Delete Account',
+          danger: true
+        });
+
+        if (confirmed) {
           state.accounts = state.accounts.filter((a) => a.id !== accId);
           await fetch(`/api/accounts/${accId}`, { method: 'DELETE' }).catch(() => null);
           showToast('Account removed', 'info');
@@ -1267,6 +1610,7 @@ class CustomProviderPlugin(BasePlugin):
 
     form.reset();
     document.getElementById('acc-id').value = '';
+    document.getElementById('acc-custom-models').value = '';
     document.getElementById('acc-priority').value = '1';
     document.getElementById('acc-weight').value = '10';
     document.getElementById('acc-extra-headers').value = '{}';
@@ -1287,6 +1631,18 @@ class CustomProviderPlugin(BasePlugin):
     document.getElementById('acc-name').value = acc.name;
     document.getElementById('acc-api-key').value = acc.api_key || '';
     document.getElementById('acc-base-url').value = acc.base_url || '';
+
+    // Load custom models override
+    let modelsVal = '';
+    if (acc.extra_config && acc.extra_config.models) {
+      if (Array.isArray(acc.extra_config.models)) {
+        modelsVal = acc.extra_config.models.join(', ');
+      } else {
+        modelsVal = String(acc.extra_config.models);
+      }
+    }
+    document.getElementById('acc-custom-models').value = modelsVal;
+
     document.getElementById('acc-priority').value = acc.priority || 1;
     document.getElementById('acc-weight').value = acc.weight || 10;
     document.getElementById('acc-extra-headers').value = typeof acc.extra_headers === 'string' ? acc.extra_headers : JSON.stringify(acc.extra_headers || {});
@@ -1387,11 +1743,20 @@ class CustomProviderPlugin(BasePlugin):
     tbody.querySelectorAll('.btn-revoke-key').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const kId = btn.getAttribute('data-key-id');
-        if (confirm('Revoke this router key? Any clients using it will lose access.')) {
+        const key = state.keys.find((k) => k.id === kId);
+        const confirmed = await showConfirmModal({
+          title: 'Revoke Router Key',
+          message: `Revoke router key '${key ? key.name : kId}'? Any clients using it will immediately lose access.`,
+          confirmText: 'Revoke Key',
+          danger: true
+        });
+
+        if (confirmed) {
           state.keys = state.keys.filter((k) => k.id !== kId);
           await fetch(`/api/keys/${kId}`, { method: 'DELETE' }).catch(() => null);
           showToast('Router key revoked', 'info');
           renderKeysList();
+          setupPlayground();
         }
       });
     });
@@ -1800,11 +2165,31 @@ class CustomProviderPlugin(BasePlugin):
         const extraHeadersVal = document.getElementById('acc-extra-headers').value;
         const extraConfigVal = document.getElementById('acc-extra-config').value;
         const isActive = document.getElementById('acc-active').checked;
+        const customModelsRaw = document.getElementById('acc-custom-models')?.value.trim() || '';
+
+        let customModelsList = null;
+        if (customModelsRaw) {
+          if (customModelsRaw.startsWith('[') && customModelsRaw.endsWith(']')) {
+            try {
+              const parsed = JSON.parse(customModelsRaw);
+              if (Array.isArray(parsed)) customModelsList = parsed;
+            } catch (_) {}
+          }
+          if (!customModelsList) {
+            customModelsList = customModelsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+          }
+        }
 
         let parsedHeaders = {};
         try { parsedHeaders = typeof extraHeadersVal === 'string' ? JSON.parse(extraHeadersVal || '{}') : extraHeadersVal; } catch (_) {}
         let parsedConfig = {};
         try { parsedConfig = typeof extraConfigVal === 'string' ? JSON.parse(extraConfigVal || '{}') : extraConfigVal; } catch (_) {}
+
+        if (customModelsList && customModelsList.length > 0) {
+          parsedConfig.models = customModelsList;
+        } else if (parsedConfig && 'models' in parsedConfig && !customModelsRaw) {
+          delete parsedConfig.models;
+        }
 
         const accountPayload = {
           provider_id: providerId,
@@ -1868,6 +2253,9 @@ class CustomProviderPlugin(BasePlugin):
     if (btnAddAcc) {
       btnAddAcc.addEventListener('click', openAddAccountModal);
     }
+
+    // Initialize Add Model modal form listener (Requirement 4)
+    setupAddModelModal();
 
     // Generate Key Form
     const btnOpenKeyGen = document.getElementById('btn-generate-key-modal');
@@ -2068,13 +2456,22 @@ class ${pName.replace(/\s+/g, '')}Plugin(BasePlugin):
       });
     }
 
-    // Clear logs
+    // Clear logs with obsidian confirmation
     const btnClearLogs = document.getElementById('btn-clear-logs');
     if (btnClearLogs) {
-      btnClearLogs.addEventListener('click', () => {
-        state.logs = [];
-        renderLogs();
-        showToast('Logs cleared', 'info');
+      btnClearLogs.addEventListener('click', async () => {
+        const confirmed = await showConfirmModal({
+          title: 'Clear Live Logs',
+          message: 'Clear all recorded telemetry logs from the current session?',
+          confirmText: 'Clear Logs',
+          danger: false,
+          icon: 'trash-2'
+        });
+        if (confirmed) {
+          state.logs = [];
+          renderLogs();
+          showToast('Logs cleared', 'info');
+        }
       });
     }
 
