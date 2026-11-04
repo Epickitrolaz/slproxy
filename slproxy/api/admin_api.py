@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
-from slproxy.config import PLUGINS_DIR
+from slproxy.config import PLUGINS_DIR, TEMPLATES_DIR
 from slproxy.core.metrics import MetricsManager
 from slproxy.core.plugin_base import BasePlugin, ModelInfo
 from slproxy.core.plugin_manager import PluginManager
@@ -346,6 +346,118 @@ async def create_plugin(payload: PluginCreateRequest, request: Request):
         "name": payload.name,
         "status": "created",
         "message": "Plugin successfully created and deployed",
+    }
+
+
+@router.delete("/plugins/{plugin_id}")
+async def delete_plugin(plugin_id: str, request: Request):
+    """
+    Remove and delete an installed plugin.
+    """
+    pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
+    db: Optional[Database] = getattr(request.app.state, "db", None)
+
+    if not pm:
+        raise HTTPException(status_code=500, detail="PluginManager not initialized")
+
+    if plugin_id in pm.plugins:
+        del pm.plugins[plugin_id]
+
+    file_path = pm.plugin_files.pop(plugin_id, None)
+    if not file_path:
+        file_path = pm.plugins_dir / f"{plugin_id}.py"
+
+    if file_path.exists():
+        try:
+            file_path.unlink()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete plugin file: {str(e)}")
+
+    if db:
+        await db.conn.execute("DELETE FROM plugin_settings WHERE plugin_id = ?", (plugin_id,))
+        await db.conn.commit()
+
+    return {"status": "deleted", "id": plugin_id}
+
+
+@router.get("/templates")
+async def list_templates():
+    """
+    List available provider plugin reference templates.
+    """
+    templates = []
+    if TEMPLATES_DIR.exists():
+        for file_path in sorted(TEMPLATES_DIR.glob("*.py")):
+            if file_path.name == "__init__.py" or file_path.name.startswith("_"):
+                continue
+            template_id = file_path.stem
+            try:
+                code = file_path.read_text(encoding="utf-8")
+                # Parse metadata simply
+                name = template_id.replace("_", " ").title()
+                format_type = "openai"
+                description = f"{name} Provider Template"
+                models_count = 0
+                for line in code.splitlines():
+                    if "name = " in line and not name.endswith("Plugin"):
+                        name = line.split("=")[1].strip().strip('"').strip("'")
+                    if "description = " in line:
+                        description = line.split("=")[1].strip().strip('"').strip("'")
+                    if "format = " in line:
+                        format_type = line.split("=")[1].strip().strip('"').strip("'")
+                    if "ModelInfo(" in line:
+                        models_count += 1
+
+                templates.append({
+                    "id": template_id,
+                    "name": name,
+                    "description": description,
+                    "format": format_type,
+                    "models_count": models_count,
+                    "code": code,
+                })
+            except Exception:
+                continue
+
+    return templates
+
+
+@router.post("/templates/{template_id}/install")
+async def install_template(template_id: str, request: Request):
+    """
+    Install a reference template into the active plugins directory.
+    """
+    pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
+    db: Optional[Database] = getattr(request.app.state, "db", None)
+
+    if not pm:
+        raise HTTPException(status_code=500, detail="PluginManager not initialized")
+
+    template_file = TEMPLATES_DIR / f"{template_id}.py"
+    if not template_file.exists():
+        raise HTTPException(status_code=404, detail=f"Template {template_id} not found")
+
+    code = template_file.read_text(encoding="utf-8")
+    try:
+        plugin = hot_reload_plugin(pm, template_id, code)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to install template: {str(e)}")
+
+    if db:
+        now = time.time()
+        await db.conn.execute(
+            """INSERT INTO plugin_settings (plugin_id, enabled, custom_code, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(plugin_id) DO UPDATE SET custom_code = excluded.custom_code, updated_at = excluded.updated_at""",
+            (template_id, 1, code, now),
+        )
+        await db.conn.commit()
+
+    return {
+        "id": template_id,
+        "name": getattr(plugin, "name", template_id),
+        "status": "installed",
+        "message": f"Template {template_id} successfully installed and deployed",
     }
 
 

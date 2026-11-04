@@ -12,15 +12,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 from slproxy.core.plugin_base import Account, ProxyRequest, ProxyResponse
-from slproxy.plugins.google_antigravity import GoogleAntigravityPlugin
-from slproxy.plugins.openai_codex import OpenAICodexPlugin
-from slproxy.plugins.anthropic_claude import AnthropicClaudePlugin
-from slproxy.plugins.openrouter import OpenRouterPlugin
-from slproxy.plugins.opencode import OpenCodePlugin
-from slproxy.plugins.agentrouter import AgentRouterPlugin
-from slproxy.plugins.moonmath_zro import MoonmathZroPlugin
-from slproxy.plugins.openai_compatible import OpenAICompatiblePlugin
-from slproxy.plugins.anthropic_compatible import AnthropicCompatiblePlugin
+from slproxy.templates.plugins.google_antigravity import GoogleAntigravityPlugin
+from slproxy.templates.plugins.openai_codex import OpenAICodexPlugin
+from slproxy.templates.plugins.anthropic_claude import AnthropicClaudePlugin
+from slproxy.templates.plugins.openrouter import OpenRouterPlugin
+from slproxy.templates.plugins.opencode import OpenCodePlugin
+from slproxy.templates.plugins.agentrouter import AgentRouterPlugin
+from slproxy.templates.plugins.moonmath_zro import MoonmathZroPlugin
+from slproxy.templates.plugins.openai_compatible import OpenAICompatiblePlugin
+from slproxy.templates.plugins.anthropic_compatible import AnthropicCompatiblePlugin
 
 
 # 1. Google Antigravity

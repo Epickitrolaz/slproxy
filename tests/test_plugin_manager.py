@@ -25,12 +25,13 @@ def temp_plugins_dir(tmp_path: Path) -> Path:
 
 
 def test_discover_and_load_built_in_plugins():
-    built_in_dir = Path(__file__).resolve().parent.parent / "slproxy" / "plugins"
-    pm = PluginManager(built_in_dir)
-    loaded_count = pm.discover_and_load_all()
+    # Verify templates directory contains the 9 reference templates
+    templates_dir = Path(__file__).resolve().parent.parent / "slproxy" / "templates" / "plugins"
+    pm_templates = PluginManager(templates_dir)
+    loaded_count = pm_templates.discover_and_load_all()
 
     assert loaded_count == 9
-    plugins = pm.list_plugins()
+    plugins = pm_templates.list_plugins()
     assert len(plugins) == 9
 
     expected_ids = {
@@ -46,6 +47,12 @@ def test_discover_and_load_built_in_plugins():
     }
     loaded_ids = {p.id for p in plugins}
     assert loaded_ids == expected_ids
+
+    # Verify default active plugins directory starts clean with 0 plugins (plain website)
+    default_plugins_dir = Path(__file__).resolve().parent.parent / "slproxy" / "plugins"
+    pm_default = PluginManager(default_plugins_dir)
+    assert pm_default.discover_and_load_all() == 0
+    assert len(pm_default.list_plugins()) == 0
 
 
 def test_load_plugin_and_measure_time(temp_plugins_dir: Path):

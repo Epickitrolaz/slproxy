@@ -13,6 +13,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "slproxy.db"
 PLUGINS_DIR = Path(os.getenv("SLPROXY_PLUGINS_DIR", BASE_DIR / "plugins"))
 PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
+TEMPLATES_DIR = BASE_DIR / "templates" / "plugins"
+TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Server
 HOST = os.getenv("SLPROXY_HOST", "0.0.0.0")

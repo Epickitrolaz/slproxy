@@ -343,3 +343,35 @@ async def test_metrics_and_logs(setup_admin_app):
     logs = resp_logs.json()
     assert len(logs) == 2
     assert logs[0]["id"] in ("log-1", "log-2")
+
+
+async def test_templates_and_plugin_deletion(setup_admin_app):
+    client = setup_admin_app["client"]
+    pm = setup_admin_app["pm"]
+
+    # 1. Get templates list
+    resp = await client.get("/api/templates")
+    assert resp.status_code == 200
+    templates = resp.json()
+    assert len(templates) >= 9
+    template_ids = {t["id"] for t in templates}
+    assert "openai_compatible" in template_ids
+    assert "moonmath_zro" in template_ids
+
+    # 2. Install template
+    install_resp = await client.post("/api/templates/openai_compatible/install")
+    assert install_resp.status_code == 200
+    assert install_resp.json()["status"] == "installed"
+
+    # Verify plugin is now active
+    plugins_resp = await client.get("/api/plugins")
+    assert any(p["id"] == "openai_compatible" for p in plugins_resp.json())
+
+    # 3. Delete plugin
+    del_resp = await client.delete("/api/plugins/openai_compatible")
+    assert del_resp.status_code == 200
+    assert del_resp.json()["status"] == "deleted"
+
+    # Verify plugin is removed
+    plugins_resp_after = await client.get("/api/plugins")
+    assert not any(p["id"] == "openai_compatible" for p in plugins_resp_after.json())
