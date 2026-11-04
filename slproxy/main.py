@@ -99,7 +99,7 @@ web_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(web_dir)), name="static")
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def serve_root():
     index_file = web_dir / "index.html"
     if index_file.exists():
