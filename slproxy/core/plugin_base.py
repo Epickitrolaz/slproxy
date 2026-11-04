@@ -177,6 +177,35 @@ class BasePlugin:
 
     def fetch_models(self, account: Optional[Account] = None) -> List[ModelInfo]:
         """
-        Return the list of supported models. Subclasses can optionally query upstream.
+        Return the list of supported models. If account has custom models configured,
+        returns those or merges them.
         """
+        if account and "models" in account.extra_config and isinstance(account.extra_config["models"], list):
+            custom_models = []
+            for m in account.extra_config["models"]:
+                if isinstance(m, dict):
+                    custom_models.append(ModelInfo(**m))
+                elif isinstance(m, str):
+                    custom_models.append(ModelInfo(id=m, name=m))
+            if custom_models:
+                return custom_models
         return self.models
+
+    def add_model(self, model: ModelInfo) -> bool:
+        """
+        Add a model to the plugin's supported models list if not already present.
+        """
+        for i, existing in enumerate(self.models):
+            if existing.id == model.id:
+                self.models[i] = model
+                return True
+        self.models.append(model)
+        return True
+
+    def remove_model(self, model_id: str) -> bool:
+        """
+        Remove a model from the plugin's supported models list.
+        """
+        initial_len = len(self.models)
+        self.models = [m for m in self.models if m.id != model_id]
+        return len(self.models) < initial_len
