@@ -2,6 +2,48 @@
 Database schema and models
 """
 
+import time
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
+
+# Re-export Account from plugin_base to keep a single definition of Account
+from slproxy.core.plugin_base import Account
+
+
+class ApiKey(BaseModel):
+    id: str
+    key: str  # e.g. "slp-live-..."
+    name: str
+    created_at: float = Field(default_factory=time.time)
+    expires_at: Optional[float] = None  # None = never expires
+    max_requests: Optional[int] = None
+    max_tokens: Optional[int] = None
+    used_requests: int = 0
+    used_tokens: int = 0
+    is_active: bool = True
+    allowed_plugins: List[str] = Field(default_factory=list)  # empty = all allowed
+    allowed_models: List[str] = Field(default_factory=list)   # empty = all allowed
+    extra_metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RequestLog(BaseModel):
+    id: str
+    timestamp: float = Field(default_factory=time.time)
+    client_ip: str = ""
+    api_key_id: Optional[str] = None
+    endpoint: str = ""
+    model: str = ""
+    provider_id: str = ""
+    account_id: str = ""
+    status_code: int = 200
+    latency_ms: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    is_stream: bool = False
+    error: Optional[str] = None
+
+
 CREATE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS accounts (
     id TEXT PRIMARY KEY,
