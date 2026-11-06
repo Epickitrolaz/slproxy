@@ -60,6 +60,7 @@ from __future__ import annotations
 import contextvars
 import hashlib
 import json
+import random
 import re
 import time
 import uuid
@@ -109,6 +110,47 @@ class GoogleAntigravityPlugin(BasePlugin):
     )
     DEFAULT_PROJECT: str = "aicode-consumers"
     DEFAULT_MODEL: str = "gemini-3.8-flash-high"
+
+    # User-tunable pacing used by the router when it has to move a request to
+    # another Google account.  Randomized delays make account switches look
+    # less like an automated retry loop.
+    settings_schema: List[Dict[str, Any]] = [
+        {
+            "key": "account_switch_delay_min_seconds",
+            "label": "Minimum account switch delay",
+            "type": "number",
+            "default": 1.0,
+            "description": "Lower bound for the random delay before trying another Google account.",
+        },
+        {
+            "key": "account_switch_delay_max_seconds",
+            "label": "Maximum account switch delay",
+            "type": "number",
+            "default": 3.0,
+            "description": "Upper bound for the random delay before trying another Google account.",
+        },
+        {
+            "key": "retry_delay_min_seconds",
+            "label": "Minimum retry delay",
+            "type": "number",
+            "default": 1.0,
+            "description": "Lower bound for the random delay before retrying a failed request.",
+        },
+        {
+            "key": "retry_delay_max_seconds",
+            "label": "Maximum retry delay",
+            "type": "number",
+            "default": 2.0,
+            "description": "Upper bound for the random delay before retrying a failed request.",
+        },
+        {
+            "key": "enable_account_switch_delay",
+            "label": "Enable account switch delay",
+            "type": "boolean",
+            "default": True,
+            "description": "When disabled, account switches happen immediately.",
+        },
+    ]
 
     # Model metadata is dynamic upstream, but these are the six model IDs the
     # official CLI exposes through ``agy models``.  Values match
@@ -556,6 +598,34 @@ class GoogleAntigravityPlugin(BasePlugin):
         if canonical.startswith("gpt"):
             return canonical, self.MODEL_CONFIGS["gpt-oss-120b-medium"]
         return canonical, self.MODEL_CONFIGS[self.DEFAULT_MODEL]
+
+    def get_account_switch_delay(self) -> float:
+        """Randomized delay used before moving a request to another account."""
+        if not bool(self.get_setting("enable_account_switch_delay", True)):
+            return 0.0
+
+        def _bounds(min_key: str, max_key: str, default_min: float, default_max: float) -> Tuple[float, float]:
+            lower = float(self.get_setting(min_key, default_min))
+            upper = float(self.get_setting(max_key, default_max))
+            if upper < lower:
+                lower, upper = upper, lower
+            return lower, upper
+
+        switch_lower, switch_upper = _bounds(
+            "account_switch_delay_min_seconds",
+            "account_switch_delay_max_seconds",
+            1.0,
+            3.0,
+        )
+        retry_lower, retry_upper = _bounds(
+            "retry_delay_min_seconds",
+            "retry_delay_max_seconds",
+            1.0,
+            2.0,
+        )
+        return random.uniform(switch_lower, switch_upper) + random.uniform(
+            retry_lower, retry_upper
+        )
 
     def _session_id(self, account: Account) -> str:
         configured = account.extra_config.get("session_id") or account.extra_config.get(
