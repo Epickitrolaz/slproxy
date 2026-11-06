@@ -60,7 +60,7 @@ class CustomProviderPlugin(BasePlugin):
         return request
 `,
 
-    moonmath_quota: `    def check_response_error(self, response: ProxyResponse) -> ErrorCheckResult:
+    rate_limit_quota: `    def check_response_error(self, response: ProxyResponse) -> ErrorCheckResult:
         """Sub-second quota detector & failover trigger"""
         if response.status_code == 429 or "quota_limit" in response.raw_text.lower():
             return ErrorCheckResult(
@@ -114,20 +114,6 @@ class CustomProviderPlugin(BasePlugin):
       id: "opencode",
       name: "OpenCode",
       description: "Specialized coding models and code intelligence benchmarks",
-      format: "openai",
-      models_count: 2
-    },
-    {
-      id: "moonmath_zro",
-      name: "Moonmath Zro",
-      description: "High-precision zero-knowledge math and symbolic reasoners with quota detection",
-      format: "openai",
-      models_count: 2
-    },
-    {
-      id: "agentrouter",
-      name: "AgentRouter",
-      description: "Autonomous agent routing with automated context headers",
       format: "openai",
       models_count: 2
     },

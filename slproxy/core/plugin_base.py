@@ -75,7 +75,7 @@ class BasePlugin:
     """
     Every SLProxy plugin is a simple Python program subclassing BasePlugin.
     It defines provider capabilities, headers, request transformations,
-    stream interceptors, and custom error/quota detection (e.g., Moonmath Zro).
+    stream interceptors, and custom error/quota detection.
     """
 
     id: str = "base"
@@ -123,7 +123,7 @@ class BasePlugin:
     def transform_request(self, request: ProxyRequest, account: Account) -> ProxyRequest:
         """
         Hook called before sending request upstream.
-        Can rewrite URLs, mutate body, inject headers (e.g. AgentRouter opencode header, Claude spoof headers).
+        Can rewrite URLs, mutate body, inject headers (e.g. Claude spoof headers).
         """
         return request
 
@@ -142,7 +142,7 @@ class BasePlugin:
     def detect_error_or_limit(self, status_code: int, response_text: str, headers: Dict[str, str]) -> ErrorCheckResult:
         """
         Hook to detect if the response is an error or quota/rate limit.
-        Allows custom inspection (e.g. Moonmath Zro returning 200 OK with limit message text).
+        Allows custom inspection (e.g. upstreams returning 200 OK with limit message text).
         """
         if status_code == 429:
             retry_after = 60.0

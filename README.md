@@ -12,7 +12,7 @@
   <a href="#quickstart-with-docker"><img src="https://img.shields.io/badge/docker-ready-0284c7?logo=docker" alt="Docker Ready"></a>
   <a href="#dynamic-python-plugins--1s-hot-reload"><img src="https://img.shields.io/badge/hot--reload-%3C%201s-10b981" alt="Sub-second Hot Reload"></a>
   <a href="#modern-webui-dashboard"><img src="https://img.shields.io/badge/webui-dark--mode-38bdf8" alt="Modern WebUI"></a>
-  <a href="#providers-supported-out-of-the-box"><img src="https://img.shields.io/badge/providers-9%20builtin-8b5cf6" alt="9 Builtin Providers"></a>
+  <a href="#providers-supported-out-of-the-box"><img src="https://img.shields.io/badge/providers-7%20builtin-8b5cf6" alt="7 Builtin Providers"></a>
   <img src="https://img.shields.io/badge/python-3.12-blue" alt="Python 3.12">
 </p>
 
@@ -65,12 +65,12 @@
 ┌──────────────────────────────────────────────────────────────────────────────────────┐
 │                            Supported Provider Plugins                                │
 ├───────────────┬───────────────┬───────────────┬──────────────────────┬───────────────┤
-│ Google        │ OpenAI        │ Claude Code   │ OpenRouter           │ Moonmath Zro  │
-│ Antigravity   │ Codex         │ (Anthropic)   │ (Aggregator)         │ (Reasoner)    │
+│ Google        │ OpenAI        │ Claude Code   │ OpenRouter           │ OpenCode      │
+│ Antigravity   │ Codex         │ (Anthropic)   │ (Aggregator)         │ (Code Models) │
 ├───────────────┼───────────────┼───────────────┼──────────────────────┼───────────────┤
-│ OpenCode      │ AgentRouter   │ Generic OpenAI│ Generic Anthropic    │ User Custom   │
-│ (Code Models) │ (Header Inj.) │ (Ollama/vLLM) │ (Custom Proxy)       │ Plugins (.py) │
-└───────────────┴───────────────┴───────────────┴──────────────────────┴───────────────┘
+│ Generic OpenAI│ Generic Anthropic                                  │ User Custom   │
+│ (Ollama/vLLM) │ (Custom Proxy)                                     │ Plugins (.py) │
+└───────────────┴────────────────────────────────────────────────────┴───────────────┘
                                          │
                                          ▼
                    ┌────────────────────────────────────────┐
@@ -138,8 +138,6 @@ class CustomAIPlugin(BasePlugin):
 | **Claude Code** | `claude` | Anthropic | `claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-opus` | Anthropic Messages format, SSE streaming event transformers |
 | **OpenRouter** | `openrouter` | OpenAI | `deepseek/deepseek-r1`, `meta-llama/llama-3.3-70b` | Universal gateway aggregator routing |
 | **OpenCode** | `opencode` | OpenAI | `opencode-base`, `opencode-instruct` | Optimized for IDE code completion and code intelligence |
-| **AgentRouter** | `agentrouter` | OpenAI | `agent-router-fast`, `agent-router-smart` | Autonomous agent context header injection |
-| **Moonmath Zro** | `moonmath` | OpenAI | `zro-reasoner-v1`, `zro-fast` | Quota rate-limit detection and cooldown backoff |
 | **OpenAI Compatible** | `openai_generic`| OpenAI | `llama3`, `deepseek-chat`, custom models | Connects to Ollama, vLLM, LocalAI, Groq, Mistral |
 | **Anthropic Compatible**| `anthropic_generic`| Anthropic | `claude-3-haiku-compatible` | Connects to third-party Anthropic-compatible proxies |
 

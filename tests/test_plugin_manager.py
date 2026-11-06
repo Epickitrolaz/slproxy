@@ -25,14 +25,14 @@ def temp_plugins_dir(tmp_path: Path) -> Path:
 
 
 def test_discover_and_load_built_in_plugins():
-    # Verify templates directory contains the 9 reference templates
+    # Verify templates directory contains the 7 reference templates
     templates_dir = Path(__file__).resolve().parent.parent / "slproxy" / "templates" / "plugins"
     pm_templates = PluginManager(templates_dir)
     loaded_count = pm_templates.discover_and_load_all()
 
-    assert loaded_count == 9
+    assert loaded_count == 7
     plugins = pm_templates.list_plugins()
-    assert len(plugins) == 9
+    assert len(plugins) == 7
 
     expected_ids = {
         "google_antigravity",
@@ -40,8 +40,6 @@ def test_discover_and_load_built_in_plugins():
         "anthropic_claude",
         "openrouter",
         "opencode",
-        "agentrouter",
-        "moonmath_zro",
         "openai_compatible",
         "anthropic_compatible",
     }

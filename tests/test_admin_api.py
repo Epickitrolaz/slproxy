@@ -357,10 +357,9 @@ async def test_templates_and_plugin_deletion(setup_admin_app):
     resp = await client.get("/api/templates")
     assert resp.status_code == 200
     templates = resp.json()
-    assert len(templates) >= 9
+    assert len(templates) >= 7
     template_ids = {t["id"] for t in templates}
     assert "openai_compatible" in template_ids
-    assert "moonmath_zro" in template_ids
 
     # 2. Install template
     install_resp = await client.post("/api/templates/openai_compatible/install")

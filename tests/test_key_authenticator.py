@@ -197,7 +197,7 @@ async def test_authenticate_restricted_plugins(auth):
 
     # Restricted plugin
     with pytest.raises(HTTPException) as exc:
-        await auth.authenticate(key_obj.key, plugin_id="moonmath")
+        await auth.authenticate(key_obj.key, plugin_id="zro")
     assert exc.value.status_code == 403
     assert "forbidden" in exc.value.detail.lower()
 

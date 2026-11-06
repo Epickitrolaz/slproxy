@@ -14,11 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 from slproxy.core.plugin_base import Account, ModelInfo, ProxyRequest, ProxyResponse
-from slproxy.templates.plugins.agentrouter import AgentRouterPlugin
 from slproxy.templates.plugins.anthropic_claude import AnthropicClaudePlugin
 from slproxy.templates.plugins.anthropic_compatible import AnthropicCompatiblePlugin
 from slproxy.templates.plugins.google_antigravity import GoogleAntigravityPlugin
-from slproxy.templates.plugins.moonmath_zro import MoonmathZroPlugin
 from slproxy.templates.plugins.openai_codex import OpenAICodexPlugin
 from slproxy.templates.plugins.openai_compatible import OpenAICompatiblePlugin
 from slproxy.templates.plugins.opencode import OpenCodePlugin
@@ -346,93 +344,7 @@ def test_opencode():
     assert transformed.headers["x-opencode-session"].startswith("ses_")
 
 
-# 6. AgentRouter
-def test_agentrouter():
-    plugin = AgentRouterPlugin()
-    assert plugin.id == "agentrouter"
-    assert plugin.name == "AgentRouter"
-    assert plugin.format == "openai"
-    assert plugin.default_base_url == "https://agentrouter.org/v1"
-
-    model_ids = {m.id for m in plugin.models}
-    assert "agentrouter-default" in model_ids
-    assert "claude-3-5-sonnet" in model_ids
-    assert "gpt-4o" in model_ids
-
-    account = Account(id="acc_ar", provider_id="agentrouter", name="ARTest", api_key="sk-ar-test")
-
-    # Verifies transparent OpenCode client header injection to bypass client restrictions
-    headers = plugin.build_headers(account)
-    assert headers["User-Agent"] == "opencode/latest/2.0.26/cli"
-    assert headers["x-opencode-session"].startswith("ses_")
-
-    req = ProxyRequest(url="https://agentrouter.org/v1/chat/completions", headers={})
-    transformed = plugin.transform_request(req, account)
-    assert transformed.headers["User-Agent"] == "opencode/latest/2.0.26/cli"
-    assert transformed.headers["x-opencode-session"].startswith("ses_")
-
-
-# 7. Moonmath Zro
-def test_moonmath_zro_quota_and_limit_detection():
-    plugin = MoonmathZroPlugin()
-    assert plugin.id == "moonmath_zro"
-    assert plugin.name == "Moonmath Zro"
-    assert plugin.format == "openai"
-    assert plugin.default_base_url == "https://api.moonmath.ai/v1"
-
-    model_ids = {m.id for m in plugin.models}
-    assert "moonmath-zro-v1" in model_ids
-    assert "moonmath-zro-pro" in model_ids
-
-    # Case 1: Status 200 OK with "daily limit reached" in response text
-    res1 = plugin.detect_error_or_limit(200, '{"error": "Account daily limit reached for today"}', {})
-    assert res1.is_error is True
-    assert res1.is_rate_limited is True
-    assert res1.should_fallback is True
-
-    # Case 2: Status 200 OK with "quota exceeded" in response text
-    res2 = plugin.detect_error_or_limit(200, 'You have quota exceeded on this tier', {})
-    assert res2.is_error is True
-    assert res2.is_rate_limited is True
-    assert res2.should_fallback is True
-
-    # Case 3: Status 200 OK with "limit was reached" in response text
-    res3 = plugin.detect_error_or_limit(200, 'Your conversational limit was reached for this model', {})
-    assert res3.is_error is True
-    assert res3.is_rate_limited is True
-    assert res3.should_fallback is True
-
-    # Case 4: Status 200 OK with "insufficient quota" in response text
-    res4 = plugin.detect_error_or_limit(200, 'insufficient quota available', {})
-    assert res4.is_error is True
-    assert res4.is_rate_limited is True
-    assert res4.should_fallback is True
-
-    # Case 5: Status 429 HTTP rate limited
-    res5 = plugin.detect_error_or_limit(429, "Too Many Requests", {"retry-after": "30"})
-    assert res5.is_error is True
-    assert res5.is_rate_limited is True
-    assert res5.should_fallback is True
-    assert res5.cooldown_seconds == 30.0
-
-    # Case 6: Normal successful 200 OK response
-    res6 = plugin.detect_error_or_limit(200, '{"id": "chatcmpl-123", "choices": []}', {})
-    assert res6.is_error is False
-    assert res6.is_rate_limited is False
-    assert res6.should_fallback is False
-
-    # Case 7: Stream chunk checking
-    chunk_limit = b'data: {"error": "daily limit reached"}\n\n'
-    stream_check = plugin.check_chunk_for_limit(chunk_limit)
-    assert stream_check is not None
-    assert stream_check.is_rate_limited is True
-    assert stream_check.should_fallback is True
-
-    chunk_normal = b'data: {"choices": [{"delta": {"content": "ok"}}]}\n\n'
-    assert plugin.check_chunk_for_limit(chunk_normal) is None
-
-
-# 8. OpenAI Compatible
+# 6. OpenAI Compatible
 def test_openai_compatible():
     plugin = OpenAICompatiblePlugin()
     assert plugin.id == "openai_compatible"
@@ -450,7 +362,7 @@ def test_openai_compatible():
     assert headers["Content-Type"] == "application/json"
 
 
-# 9. Anthropic Compatible
+# 7. Anthropic Compatible
 def test_anthropic_compatible():
     plugin = AnthropicCompatiblePlugin()
     assert plugin.id == "anthropic_compatible"
@@ -472,22 +384,6 @@ def test_anthropic_compatible():
     assert transformed.url == "https://api.anthropic.com/v1/messages"
 
 
-def test_moonmath_zro_upstream_and_auth_errors():
-    plugin = MoonmathZroPlugin()
-
-    # Test HTTP 500 upstream server error
-    res_500 = plugin.detect_error_or_limit(500, "Internal Server Error", {})
-    assert res_500.is_error is True
-    assert res_500.should_fallback is True
-    assert "Upstream Server Error" in res_500.error_message
-
-    # Test HTTP 401 Auth error
-    res_401 = plugin.detect_error_or_limit(401, "Unauthorized", {})
-    assert res_401.is_error is True
-    assert res_401.should_fallback is True
-    assert "Authentication" in res_401.error_message
-
-
 def test_plugin_fetch_models_and_custom_base_url():
     plugins = [
         GoogleAntigravityPlugin(),
@@ -495,8 +391,6 @@ def test_plugin_fetch_models_and_custom_base_url():
         AnthropicClaudePlugin(),
         OpenRouterPlugin(),
         OpenCodePlugin(),
-        AgentRouterPlugin(),
-        MoonmathZroPlugin(),
         OpenAICompatiblePlugin(),
         AnthropicCompatiblePlugin(),
     ]
