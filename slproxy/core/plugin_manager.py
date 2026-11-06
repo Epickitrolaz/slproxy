@@ -14,6 +14,11 @@ from typing import Dict, List, Optional, Union
 
 from slproxy.core.plugin_base import BasePlugin
 
+try:
+    from slproxy.config import TEMPLATES_DIR as DEFAULT_TEMPLATES_DIR
+except ImportError:  # pragma: no cover - config always importable in practice
+    DEFAULT_TEMPLATES_DIR = None
+
 
 class PluginManager:
     """
@@ -21,9 +26,14 @@ class PluginManager:
     and registering Python plugins.
     """
 
-    def __init__(self, plugins_dir: Union[Path, str]):
+    def __init__(self, plugins_dir: Union[Path, str], templates_dir: Optional[Union[Path, str]] = None):
         self.plugins_dir = Path(plugins_dir)
         self.plugins_dir.mkdir(parents=True, exist_ok=True)
+        self.templates_dir = (
+            Path(templates_dir) if templates_dir is not None
+            else Path(DEFAULT_TEMPLATES_DIR) if DEFAULT_TEMPLATES_DIR is not None
+            else self.plugins_dir.parent / "templates" / "plugins"
+        )
         self.plugins: Dict[str, BasePlugin] = {}
         self.plugin_files: Dict[str, Path] = {}
         self.load_times: Dict[str, float] = {}
@@ -215,12 +225,20 @@ class PluginManager:
     def get_plugin_source(self, plugin_id: str) -> str:
         """
         Reads the .py source code of the plugin from disk.
+        Falls back to the templates directory for reference templates that are
+        available but not installed (e.g. Google Antigravity in a fresh install).
         """
         file_path = self.plugin_files.get(plugin_id)
         if file_path is None or not file_path.exists():
             file_path = self.plugins_dir / f"{plugin_id}.py"
 
         if not file_path.exists():
+            # Reference templates live outside the active plugins directory;
+            # they remain selectable sources until the user installs/edits them.
+            template_path = self.templates_dir / f"{plugin_id}.py"
+            if template_path.exists():
+                return template_path.read_text(encoding="utf-8")
+
             raise FileNotFoundError(f"Source file for plugin '{plugin_id}' not found at {file_path}")
 
         return file_path.read_text(encoding="utf-8")

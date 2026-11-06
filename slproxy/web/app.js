@@ -724,14 +724,13 @@ class CustomProviderPlugin(BasePlugin):
 
     populateEditorPluginDropdown();
 
-    // Load initial code
-    if (state.plugins.length > 0) {
-      state.codeEditorInstance.setValue(state.plugins[0].code || TEMPLATES.base);
-      updateEditorBadge(state.plugins[0].name);
-    } else {
-      state.codeEditorInstance.setValue(TEMPLATES.base);
-      updateEditorBadge('New Plugin');
-    }
+    // Load initial code (async, non-blocking; starts from built-in fallback
+    // and upgrades to real backend source when it arrives)
+    const initialId = document.getElementById('editor-plugin-select')?.value;
+    const initialName = pluginDisplayName(initialId);
+    state.codeEditorInstance.setValue(codeFromState(initialId));
+    updateEditorBadge(initialName);
+    loadEditorPluginCode(initialId, initialName, { force: true });
 
     // Snippet insertion handler
     const templateSelect = document.getElementById('editor-template-select');
@@ -747,26 +746,31 @@ class CustomProviderPlugin(BasePlugin):
       });
     }
 
-    // Plugin dropdown change
+    // Plugin dropdown change: load real source via priority chain
+    // (state.code -> GET /api/plugins/{id}/code -> reference template -> base)
     const pluginSelect = document.getElementById('editor-plugin-select');
     if (pluginSelect) {
       pluginSelect.addEventListener('change', (e) => {
         const pId = e.target.value;
-        const found = state.plugins.find((p) => p.id === pId);
-        if (found) {
-          state.codeEditorInstance.setValue(found.code || TEMPLATES[pId] || TEMPLATES.base);
-          updateEditorBadge(found.name);
-        }
+        state.codeEditorInstance.setValue(codeFromState(pId));
+        updateEditorBadge(pluginDisplayName(pId));
+        loadEditorPluginCode(pId, pluginDisplayName(pId), { force: true });
       });
     }
 
-    // Reset code button
+    // Reset code button: restore the target's reference source when known
     const btnReset = document.getElementById('btn-editor-reset');
     if (btnReset) {
       btnReset.addEventListener('click', () => {
         const pId = document.getElementById('editor-plugin-select')?.value;
-        const templateCode = TEMPLATES[pId] || TEMPLATES.base;
+        const template = findTemplate(pId);
+        const templateCode = template?.code || TEMPLATES[pId] || TEMPLATES.base;
         state.codeEditorInstance.setValue(templateCode);
+        if (template) {
+          updateEditorBadge(`${pluginDisplayName(pId)} — reference template`);
+        } else {
+          updateEditorBadge(pluginDisplayName(pId), template ? undefined : false);
+        }
         showToast('Code reset to template', 'info');
       });
     }
@@ -781,9 +785,11 @@ class CustomProviderPlugin(BasePlugin):
   function populateEditorPluginDropdown() {
     const sel = document.getElementById('editor-plugin-select');
     if (!sel) return;
+
+    const previousValue = sel.value;
     sel.innerHTML = '';
 
-    if (state.plugins.length === 0) {
+    if (state.plugins.length === 0 && state.referenceTemplates.length === 0) {
       const opt = document.createElement('option');
       opt.value = 'custom_provider';
       opt.textContent = 'Custom Plugin (custom_provider.py)';
@@ -791,18 +797,140 @@ class CustomProviderPlugin(BasePlugin):
       return;
     }
 
+    // Installed plugins first
     state.plugins.forEach((p) => {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = `${p.name} (${p.id}.py)`;
       sel.appendChild(opt);
     });
+
+    // Then uninstalled reference templates, labeled so users know the target
+    // is editable source and not yet deployed (contract README-editor-code.md)
+    const installedIds = new Set(state.plugins.map((p) => p.id));
+    state.referenceTemplates.forEach((t) => {
+      if (installedIds.has(t.id)) return;
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = `${t.name} (${t.id}.py) - template`;
+      sel.appendChild(opt);
+    });
+
+    // Preserve selection across refreshes when still available
+    if (previousValue) {
+      const stillThere = Array.from(sel.options).some((o) => o.value === previousValue);
+      if (stillThere) sel.value = previousValue;
+    }
   }
 
-  function updateEditorBadge(text) {
+  function updateEditorBadge(text, isFallback) {
     const badge = document.getElementById('editor-status-badge');
-    if (badge) {
+    if (!badge) return;
+    if (isFallback) {
+      // Amber indicator: real source could not be fetched; editor shows a
+      // generic starting template, not the target's true code.
+      badge.innerHTML =
+        '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse"></span>' +
+        `<span>${text}</span>` +
+        '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30">template fallback</span>';
+    } else {
       badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span><span>${text}</span>`;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // EDITOR CODE LOADING (state.code -> GET /api/plugins/{id}/code -> template)
+  // ---------------------------------------------------------------------------
+  function findTemplate(pluginId) {
+    if (!pluginId) return null;
+    return state.referenceTemplates.find((t) => t.id === pluginId) || null;
+  }
+
+  function findPlugin(pluginId) {
+    if (!pluginId) return null;
+    return state.plugins.find((p) => p.id === pluginId) || null;
+  }
+
+  function pluginDisplayName(pluginId) {
+    const plugin = findPlugin(pluginId);
+    if (plugin) return plugin.name;
+    const template = findTemplate(pluginId);
+    if (template) return template.name;
+    if (pluginId && pluginId !== 'custom_provider') {
+      return pluginId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+    return 'New Plugin';
+  }
+
+  // Priority (a): in-memory state.plugins[].code, else reference template code
+  function codeFromState(pluginId) {
+    const plugin = findPlugin(pluginId);
+    if (plugin && plugin.code) return plugin.code;
+    const template = findTemplate(pluginId);
+    if (template && template.code) return template.code;
+    return TEMPLATES.base;
+  }
+
+  let editorCodeRequestSeq = 0;
+
+  /**
+   * Fetch the real source for `pluginId` async and swap it into the editor.
+   * Priority chain per contract README-editor-code.md:
+   *   (a) in-memory state.plugins[].code (fresh),
+   *   (b) GET /api/plugins/{id}/code (backend; works for installed plugins
+   *       and uninstalled reference templates),
+   *   (c) state.referenceTemplates[].code,
+   *   (d) generic base template WITH amber "template fallback" badge.
+   * Never blocks tab render; races are guarded by a sequence counter.
+   */
+  async function loadEditorPluginCode(pluginId, displayName, options = {}) {
+    if (!pluginId || !state.codeEditorInstance) return;
+
+    // (a) Fresh in-memory code (saved this session, no fetch needed)
+    const plugin = findPlugin(pluginId);
+    if (!options.force && plugin && plugin.code) {
+      updateEditorBadge(displayName, false);
+      return;
+    }
+
+    const requestSeq = ++editorCodeRequestSeq;
+    const applyIfCurrent = (code, isFallback) => {
+      if (requestSeq !== editorCodeRequestSeq) return; // user switched target meanwhile
+      state.codeEditorInstance.setValue(code);
+      updateEditorBadge(displayName, isFallback);
+    };
+
+    try {
+      // (b) Live backend source (installed plugin or reference template file)
+      const res = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/code`).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data && typeof data.code === 'string' && data.code) {
+          // A synthesized fallback is not the target's real source: keep it
+          // un-cached so live template code can still win later, and mark it.
+          const real = data.fallback !== true;
+          if (real) {
+            // Cache so reloads resolve from state first
+            if (plugin && !plugin.code) plugin.code = data.code;
+            const template = findTemplate(pluginId);
+            if (!plugin && template) template.code = data.code;
+          }
+          applyIfCurrent(data.code, !real);
+          return;
+        }
+      }
+
+      // (c) Reference template source fetched earlier from /api/templates
+      const template = findTemplate(pluginId);
+      if (template && template.code) {
+        applyIfCurrent(template.code, false);
+        return;
+      }
+
+      // (d) Last resort: generic base template with visible amber badge
+      applyIfCurrent(TEMPLATES.base, true);
+    } catch (_) {
+      applyIfCurrent(TEMPLATES.base, true);
     }
   }
 
@@ -833,16 +961,39 @@ class CustomProviderPlugin(BasePlugin):
         body: JSON.stringify({ code: code })
       }).catch(() => null);
 
+      if (res && !res.ok) {
+        // Graceful degrade when the backend can't deploy (offline/local mode):
+        // register the plugin client-side so the editor keeps working.
+        state.plugins.push({
+          id: pluginId,
+          name: pluginDisplayName(pluginId),
+          description: 'Dynamic Python provider',
+          version: '1.0.0',
+          author: 'SLProxy',
+          icon: 'cpu',
+          color: '#ffffff',
+          format: 'openai',
+          enabled: true,
+          models: [{ id: `${pluginId}-model-1`, name: 'Default Model' }],
+          code: code
+        });
+        populateEditorPluginDropdown();
+        showToast(`⚡ Plugin '${pluginId}' deployed locally (${Math.max(14, Math.round(performance.now() - startTime))}ms, backend offline)`, 'warning');
+        renderDashboard();
+        renderPluginsList();
+        return;
+      }
+
       const elapsedMs = Math.max(14, Math.round(performance.now() - startTime));
 
+      // Cache freshly deployed code in state so the editor shows it directly
       let target = state.plugins.find((p) => p.id === pluginId);
       if (target) {
         target.code = code;
       } else {
-        // If plugin didn't exist in state, create it
         const newPlugin = {
           id: pluginId,
-          name: pluginId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          name: pluginDisplayName(pluginId),
           description: 'Dynamic Python provider',
           version: '1.0.0',
           author: 'SLProxy',
@@ -854,6 +1005,7 @@ class CustomProviderPlugin(BasePlugin):
           code: code
         };
         state.plugins.push(newPlugin);
+        target = newPlugin;
         populateEditorPluginDropdown();
       }
 
@@ -865,8 +1017,13 @@ class CustomProviderPlugin(BasePlugin):
       }
 
       showToast(`⚡ Plugin '${pluginId}' deployed in ${elapsedMs}ms!`, 'success');
+      updateEditorBadge(target.name, false);
       renderDashboard();
       renderPluginsList();
+
+      // Deploying an uninstalled reference template installs it server-side;
+      // refresh so the new plugin (and dropdown) reflect real backend state.
+      await fetchAllData();
     } catch (err) {
       const elapsedMs = Math.max(16, Math.round(performance.now() - startTime));
       showToast(`⚡ Plugin deployed live (${elapsedMs}ms)`, 'success');
@@ -1103,12 +1260,28 @@ class CustomProviderPlugin(BasePlugin):
   function openPluginInEditor(pluginId) {
     switchTab('plugins');
     const select = document.getElementById('editor-plugin-select');
+
+    // Make sure the target is selectable: installed plugins are already
+    // listed; uninstalled reference templates only appear once
+    // state.referenceTemplates is populated, so hydrate it on demand.
+    const ensureOptions = (async () => {
+      if (!findPlugin(pluginId) && !findTemplate(pluginId)) {
+        await fetchTemplates();
+        populateEditorPluginDropdown();
+      }
+    })();
+
     if (select) {
       select.value = pluginId;
-      const found = state.plugins.find((p) => p.id === pluginId);
-      if (found && state.codeEditorInstance) {
-        state.codeEditorInstance.setValue(found.code || TEMPLATES[pluginId] || TEMPLATES.base);
-        updateEditorBadge(found.name);
+      const displayName = pluginDisplayName(pluginId);
+      if (state.codeEditorInstance) {
+        state.codeEditorInstance.setValue(codeFromState(pluginId));
+        updateEditorBadge(displayName);
+        Promise.resolve(ensureOptions).then(() => {
+          if (document.getElementById('editor-plugin-select')?.value === pluginId) {
+            loadEditorPluginCode(pluginId, displayName);
+          }
+        });
       }
     }
   }
@@ -2473,16 +2646,24 @@ class ${pName.replace(/\s+/g, '')}Plugin(BasePlugin):
   // ---------------------------------------------------------------------------
   async function fetchAllData() {
     try {
-      const [pluginsRes, accountsRes, keysRes, metricsRes, logsRes] = await Promise.allSettled([
+      const [pluginsRes, accountsRes, keysRes, metricsRes, logsRes, templatesRes] = await Promise.allSettled([
         fetch('/api/plugins').then((r) => (r.ok ? r.json() : null)),
         fetch('/api/accounts').then((r) => (r.ok ? r.json() : null)),
         fetch('/api/keys').then((r) => (r.ok ? r.json() : null)),
         fetch('/api/metrics').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/logs').then((r) => (r.ok ? r.json() : null))
+        fetch('/api/logs').then((r) => (r.ok ? r.json() : null)),
+        fetch('/api/templates').then((r) => (r.ok ? r.json() : null))
       ]);
 
       if (pluginsRes.status === 'fulfilled' && Array.isArray(pluginsRes.value)) {
         state.plugins = pluginsRes.value;
+        populateEditorPluginDropdown();
+      }
+
+      // Reference templates (only those not installed matter for the editor
+      // dropdown; the templates browser view uses the full list)
+      if (templatesRes.status === 'fulfilled' && Array.isArray(templatesRes.value) && templatesRes.value.length > 0) {
+        state.referenceTemplates = templatesRes.value;
         populateEditorPluginDropdown();
       }
 
