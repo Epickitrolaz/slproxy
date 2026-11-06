@@ -9,7 +9,9 @@ Implements:
 """
 
 import inspect
+import asyncio
 import json
+import random
 import time
 import uuid
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
@@ -747,8 +749,17 @@ async def chat_completions(
 
     # 3. Transparent account retry loop
     last_error_resp: Optional[Response] = None
+    account_switch_count = 0
 
     while candidate_accounts:
+        # Antigravity: avoid instantaneous account switches/retries by waiting a
+        # randomized amount of time before moving to another Google account.
+        if account_switch_count > 0 and plugin.id == "google_antigravity":
+            delay_method = getattr(plugin, "get_account_switch_delay", None)
+            delay = float(delay_method()) if callable(delay_method) else 0.0
+            if delay > 0:
+                await asyncio.sleep(delay)
+
         selected_account = select_account(account_router, candidate_accounts)
         if not selected_account:
             # All available accounts exhausted or rate limited
@@ -780,6 +791,7 @@ async def chat_completions(
             except Exception as ex:
                 err_check = ErrorCheckResult(is_error=True, error_message=str(ex), should_fallback=True)
                 await mark_account_error_or_limit(account_router, db, selected_account, err_check)
+                account_switch_count += 1
                 candidate_accounts = [a for a in candidate_accounts if a.id != selected_account.id]
                 continue
 
@@ -804,6 +816,7 @@ async def chat_completions(
                     and (err_check.should_fallback or status_code == 429)
                     and len(candidate_accounts) > 1
                 ):
+                    account_switch_count += 1
                     candidate_accounts = [a for a in candidate_accounts if a.id != selected_account.id]
                     continue
                 else:
@@ -870,6 +883,7 @@ async def chat_completions(
             except Exception as ex:
                 err_check = ErrorCheckResult(is_error=True, error_message=str(ex), should_fallback=True)
                 await mark_account_error_or_limit(account_router, db, selected_account, err_check)
+                account_switch_count += 1
                 candidate_accounts = [a for a in candidate_accounts if a.id != selected_account.id]
                 continue
 
@@ -887,6 +901,7 @@ async def chat_completions(
                     and (err_check.should_fallback or resp.status_code == 429)
                     and len(candidate_accounts) > 1
                 ):
+                    account_switch_count += 1
                     candidate_accounts = [a for a in candidate_accounts if a.id != selected_account.id]
                     last_error_resp = JSONResponse(
                         status_code=resp.status_code,
