@@ -186,11 +186,19 @@ The WebUI is served at `http://localhost:8080/` with a dark-mode first design:
 
 ### Using Docker Compose (Recommended)
 
-1. Clone repository and start container:
+`docker-compose.yml` pulls the prebuilt image from GHCR, so no local build is needed:
+
+1. Clone the repository and start the container:
 ```bash
 git clone https://github.com/Epickitrolaz/slproxy.git
 cd slproxy
 docker compose up -d
+```
+
+To build the image locally instead of using the published image:
+
+```bash
+docker compose up -d --build
 ```
 
 2. Open the WebUI in your browser:
@@ -201,16 +209,17 @@ http://localhost:8080
 ### Using Docker CLI
 
 ```bash
-# Build the image
-docker build -t slproxy:latest .
-
-# Run container with persistent data volume
+# Pull and run the prebuilt image with persistent data volume
 docker run -d \
   --name slproxy \
   -p 8080:8080 \
   -v $(pwd)/data:/data \
-  slproxy:latest
+  ghcr.io/epickitrolaz/slproxy:latest
 ```
+
+Alternative tags: `:latest` (current main), `:1.2.3` / `:1.2` (release versions), `:sha-<commit>` (per-commit builds). Multi-arch images are built for `linux/amd64` and `linux/arm64`.
+
+> **Image availability note:** the GHCR package is private on first publish — after the first CI run, flip `ghcr.io/epickitrolaz/slproxy` to public under *GitHub → Packages → slproxy → Package settings → Change visibility*. Until then, `docker pull` from ghcr requires `docker login ghcr.io` with a GitHub token that has `read:packages`.
 
 ---
 

@@ -1,9 +1,11 @@
 services:
   slproxy:
+    # Uses the prebuilt image from GHCR (docker compose pull);
+    # pass --build to rebuild locally instead (docker compose up -d --build).
     build:
       context: .
       dockerfile: Dockerfile
-    image: slproxy:latest
+    image: ghcr.io/epickitrolaz/slproxy:latest
     container_name: slproxy
     ports:
       - "8080:8080"
