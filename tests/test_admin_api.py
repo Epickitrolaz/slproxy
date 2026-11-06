@@ -17,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from slproxy.core.account_router import AccountRouter
 from slproxy.core.key_authenticator import KeyAuthenticator
 from slproxy.core.metrics import MetricsManager, RequestLog
-from slproxy.core.plugin_base import BasePlugin, ModelInfo
+from slproxy.core.plugin_base import BasePlugin, ModelInfo, ProxyRequest
 from slproxy.core.plugin_manager import PluginManager
 from slproxy.core.proxy_engine import ProxyEngine
 from slproxy.db.database import Database
@@ -31,6 +31,10 @@ class SampleProviderPlugin(BasePlugin):
     name = "Sample Provider"
     default_base_url = "https://sample.provider"
     format = "openai"
+    settings_schema = [
+        {"key": "endpoint_mode", "label": "Endpoint Mode", "type": "select", "default": "standard", "options": ["standard", "compat"]},
+        {"key": "use_native_tools", "label": "Native Tools", "type": "boolean", "default": True},
+    ]
 
     def __init__(self):
         super().__init__()
@@ -99,6 +103,41 @@ async def test_get_plugins(setup_admin_app):
     assert tp["account_count"] == 1
     assert len(tp["models"]) == 1
     assert tp["models"][0]["id"] == "sample-model"
+    assert tp["settings_schema"][0]["key"] == "endpoint_mode"
+    assert tp["settings"] == {}
+
+
+async def test_plugin_variables_save_validate_and_restore(setup_admin_app):
+    client = setup_admin_app["client"]
+    db = setup_admin_app["db"]
+    pm = setup_admin_app["pm"]
+    plugin = pm.plugins["sampleplugin"]
+
+    response = await client.put(
+        "/api/plugins/sampleplugin/settings",
+        json={"settings": {"endpoint_mode": "compat", "use_native_tools": False}},
+    )
+    assert response.status_code == 200
+    assert response.json()["settings"] == {"endpoint_mode": "compat", "use_native_tools": False}
+    assert plugin.get_setting("endpoint_mode") == "compat"
+    assert plugin.get_setting("missing", "fallback") == "fallback"
+
+    invalid = await client.put(
+        "/api/plugins/sampleplugin/settings",
+        json={"settings": {"endpoint_mode": "unsupported"}},
+    )
+    assert invalid.status_code == 422
+
+    # Simulate a plugin reload and ensure GET reapplies persisted variables.
+    fresh_plugin = SampleProviderPlugin()
+    pm.plugins["sampleplugin"] = fresh_plugin
+    listed = await client.get("/api/plugins")
+    sample = next(item for item in listed.json() if item["id"] == "sampleplugin")
+    assert sample["settings"] == {"endpoint_mode": "compat", "use_native_tools": False}
+    assert fresh_plugin.get_setting("endpoint_mode") == "compat"
+    async with db.conn.execute("SELECT variables FROM plugin_settings WHERE plugin_id = 'sampleplugin'") as cur:
+        row = await cur.fetchone()
+    assert json.loads(row["variables"]) == sample["settings"]
 
 
 async def test_toggle_plugin(setup_admin_app):
@@ -395,6 +434,7 @@ async def test_plugin_models_add_and_delete(setup_admin_app):
         "supports_tools": True,
         "supports_vision": True,
         "pricing": {"prompt": 0.005, "completion": 0.015},
+        "options": {"upstream_model_id": "sample/pro-v2", "temperature": 0.2},
     }
 
     add_resp = await client.post("/api/plugins/sampleplugin/models", json=model_payload)
@@ -405,6 +445,7 @@ async def test_plugin_models_add_and_delete(setup_admin_app):
     assert add_data["model"]["name"] == "Sample Pro Model"
     assert add_data["model"]["context_window"] == 128000
     assert add_data["model"]["supports_vision"] is True
+    assert add_data["model"]["options"] == {"upstream_model_id": "sample/pro-v2", "temperature": 0.2}
 
     # Verify in live plugin instance
     sample_plugin = pm.plugins["sampleplugin"]
@@ -428,6 +469,7 @@ async def test_plugin_models_add_and_delete(setup_admin_app):
 
     # Verify removed from live plugin instance
     assert not any(m.id == "sample-pro-model" for m in sample_plugin.models)
+    assert sample_plugin.get_model_options("sample-model") == {}
 
     # Verify in GET /api/plugins
     plugins_resp_after = await client.get("/api/plugins")
@@ -442,6 +484,13 @@ async def test_plugin_models_add_and_delete(setup_admin_app):
     # 5. Delete model from non-existent plugin returns 404
     bad_del_plugin_resp = await client.delete("/api/plugins/nonexistent/models/some-model")
     assert bad_del_plugin_resp.status_code == 404
+
+    # Empty persisted model lists are meaningful: removing every model must not
+    # cause the source-defined defaults to reappear on the next API sync.
+    await client.delete("/api/plugins/sampleplugin/models/sample-model")
+    empty_models_resp = await client.get("/api/plugins")
+    empty_plugin = next(item for item in empty_models_resp.json() if item["id"] == "sampleplugin")
+    assert empty_plugin["models"] == []
 
 
 async def test_account_level_model_overrides_in_router(setup_admin_app):
@@ -483,6 +532,7 @@ async def test_plugin_models_persistence_across_reload(setup_admin_app):
         "id": "persisted-restart-model",
         "name": "Persisted Restart Model",
         "context_window": 64000,
+        "options": {"target": "upstream-v1", "reasoning": True},
     }
     add_resp = await client.post("/api/plugins/sampleplugin/models", json=payload)
     assert add_resp.status_code == 200
@@ -502,7 +552,12 @@ async def test_plugin_models_persistence_across_reload(setup_admin_app):
     plugins_resp = await client.get("/api/plugins")
     assert plugins_resp.status_code == 200
     sample_p = next(p for p in plugins_resp.json() if p["id"] == "sampleplugin")
-    assert any(m["id"] == "persisted-restart-model" for m in sample_p["models"])
+    persisted_model = next(m for m in sample_p["models"] if m["id"] == "persisted-restart-model")
+    assert persisted_model["options"] == {"target": "upstream-v1", "reasoning": True}
+    configured = fresh_plugin.configure_request(
+        ProxyRequest(url="https://sample.provider", model="persisted-restart-model")
+    )
+    assert configured.metadata["model_options"] == {"target": "upstream-v1", "reasoning": True}
 
 
 async def test_account_level_model_overrides_priority_filtering(setup_admin_app):

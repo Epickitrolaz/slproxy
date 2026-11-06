@@ -8,6 +8,7 @@ Implements:
 - POST /routerapi/v1/embeddings
 """
 
+import inspect
 import json
 import time
 import uuid
@@ -250,14 +251,18 @@ async def sync_plugin_models_from_db(db: Optional[Database], pm: Optional[Plugin
     if not db or not pm:
         return
     try:
-        async with db.conn.execute("SELECT plugin_id, models FROM plugin_settings WHERE models IS NOT NULL") as cur:
+        async with db.conn.execute("SELECT plugin_id, models, variables FROM plugin_settings") as cur:
             for row in await cur.fetchall():
                 p_id = row["plugin_id"]
-                if p_id in pm.plugins and row["models"]:
+                if p_id in pm.plugins:
                     try:
-                        persisted = [ModelInfo(**item) for item in json.loads(row["models"])]
-                        if persisted:
+                        if row["models"] is not None:
+                            persisted = [ModelInfo(**item) for item in json.loads(row["models"])]
                             pm.plugins[p_id].models = persisted
+                    except Exception:
+                        pass
+                    try:
+                        pm.plugins[p_id].set_settings(json.loads(row["variables"] or "{}"))
                     except Exception:
                         pass
     except Exception:
@@ -587,6 +592,13 @@ async def execute_proxy_stream(
         try:
             async for chunk in upstream_resp.aiter_bytes():
                 yield plugin.transform_stream_chunk(chunk, account)
+            final_chunk = plugin.finalize_stream(account, proxy_req.metadata)
+            if inspect.iscoroutine(final_chunk):
+                final_chunk = await final_chunk
+            if final_chunk:
+                if isinstance(final_chunk, str):
+                    final_chunk = final_chunk.encode("utf-8")
+                yield final_chunk
         finally:
             await upstream_resp.aclose()
             await client.aclose()
@@ -757,6 +769,7 @@ async def chat_completions(
             model=upstream_model,
             client_format="openai",
         )
+        proxy_req = plugin.configure_request(proxy_req)
         proxy_req = plugin.transform_request(proxy_req, selected_account)
 
         if is_stream:
@@ -782,7 +795,15 @@ async def chat_completions(
                 err_check = plugin.detect_error_or_limit(status_code, err_text, resp_headers)
                 await mark_account_error_or_limit(account_router, db, selected_account, err_check)
 
-                if (err_check.should_fallback or status_code == 429) and len(candidate_accounts) > 1:
+                antigravity_account_restriction = (
+                    plugin.id == "google_antigravity"
+                    and (err_check.is_rate_limited or status_code in (401, 403))
+                )
+                if (
+                    not antigravity_account_restriction
+                    and (err_check.should_fallback or status_code == 429)
+                    and len(candidate_accounts) > 1
+                ):
                     candidate_accounts = [a for a in candidate_accounts if a.id != selected_account.id]
                     continue
                 else:
@@ -857,7 +878,15 @@ async def chat_completions(
 
             if err_check.is_error or err_check.is_rate_limited or resp.status_code >= 400:
                 await mark_account_error_or_limit(account_router, db, selected_account, err_check)
-                if (err_check.should_fallback or resp.status_code == 429) and len(candidate_accounts) > 1:
+                antigravity_account_restriction = (
+                    plugin.id == "google_antigravity"
+                    and (err_check.is_rate_limited or resp.status_code in (401, 403))
+                )
+                if (
+                    not antigravity_account_restriction
+                    and (err_check.should_fallback or resp.status_code == 429)
+                    and len(candidate_accounts) > 1
+                ):
                     candidate_accounts = [a for a in candidate_accounts if a.id != selected_account.id]
                     last_error_resp = JSONResponse(
                         status_code=resp.status_code,
@@ -1146,6 +1175,7 @@ async def anthropic_messages(
                 client_format="openai",
             )
 
+        proxy_req = plugin.configure_request(proxy_req)
         proxy_req = plugin.transform_request(proxy_req, selected_account)
 
         if is_stream:
@@ -1360,6 +1390,7 @@ async def embeddings(
             model=upstream_model,
             client_format="openai",
         )
+        proxy_req = plugin.configure_request(proxy_req)
         proxy_req = plugin.transform_request(proxy_req, selected_account)
 
         try:

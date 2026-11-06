@@ -121,6 +121,14 @@ class Database:
     async def init_tables(self):
         async with self.conn.cursor() as cursor:
             await cursor.executescript(CREATE_TABLES_SQL)
+            # Migrate plugin settings created by earlier SLProxy versions.
+            async with self.conn.execute("PRAGMA table_info(plugin_settings)") as info_cursor:
+                columns = {row["name"] for row in await info_cursor.fetchall()}
+            for column in ("models", "variables"):
+                if column not in columns:
+                    await self.conn.execute(
+                        f"ALTER TABLE plugin_settings ADD COLUMN {column} TEXT"
+                    )
         await self.conn.commit()
 
     @property

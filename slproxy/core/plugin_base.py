@@ -17,6 +17,7 @@ class ModelInfo(BaseModel):
     supports_vision: bool = False
     pricing: Dict[str, float] = Field(default_factory=dict)  # prompt, completion per 1k tokens
     extra: Dict[str, Any] = Field(default_factory=dict)
+    options: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Account(BaseModel):
@@ -88,10 +89,45 @@ class BasePlugin:
     default_base_url: str = ""
     format: str = "openai"  # "openai", "anthropic", etc.
     models: List[ModelInfo] = []
+    # User-editable provider variables. Plugins can declare controls with
+    # {key, label, type, default, description, options} and read the saved
+    # values from ``self.settings`` / ``get_setting`` in their hooks.
+    settings_schema: List[Dict[str, Any]] = []
     enabled: bool = True
 
     def __init__(self):
-        pass
+        self.settings: Dict[str, Any] = {}
+
+    def set_settings(self, values: Optional[Dict[str, Any]]) -> None:
+        """Apply persisted provider variables to this plugin instance."""
+        self.settings = dict(values or {})
+
+    def get_setting(self, key: str, default: Any = None) -> Any:
+        """Read a configured provider variable, falling back to its schema default."""
+        if key in self.settings:
+            return self.settings[key]
+        for item in self.settings_schema or []:
+            if isinstance(item, dict) and item.get("key") == key:
+                return item.get("default", default)
+        return default
+
+    def get_model_options(self, model_id: str) -> Dict[str, Any]:
+        """Return user-configured options for a model (custom models included)."""
+        for model in self.fetch_models():
+            if isinstance(model, ModelInfo) and model.id == model_id:
+                return {**model.extra, **model.options}
+            if isinstance(model, dict) and model.get("id") == model_id:
+                return {
+                    **(model.get("extra") or {}),
+                    **(model.get("options") or {}),
+                }
+        return {}
+
+    def configure_request(self, request: "ProxyRequest") -> "ProxyRequest":
+        """Attach provider variables/options so custom plugins can consume them in hooks."""
+        request.metadata.setdefault("provider_settings", dict(self.settings))
+        request.metadata.setdefault("model_options", self.get_model_options(request.model))
+        return request
 
     def get_base_url(self, account: Optional[Account] = None) -> str:
         if account and account.base_url:
@@ -138,6 +174,15 @@ class BasePlugin:
         Hook called for each chunk in SSE streaming.
         """
         return chunk
+
+    def finalize_stream(self, account: Account, metadata: Optional[Dict[str, Any]] = None) -> bytes:
+        """
+        Hook called once after the upstream stream ends.
+
+        Allows stateful stream transformers to flush buffered data or emit a
+        terminating event (for example ``data: [DONE]``). The default is a no-op.
+        """
+        return b""
 
     def detect_error_or_limit(self, status_code: int, response_text: str, headers: Dict[str, str]) -> ErrorCheckResult:
         """

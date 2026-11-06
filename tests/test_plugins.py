@@ -3,9 +3,10 @@ Tests for SLProxy Built-in Provider Plugins
 Verifies headers, request transformations, model catalogs, and custom error/quota detection.
 """
 
+import json
+import re
 import sys
 import time
-import uuid
 from pathlib import Path
 
 # Ensure project root is on sys.path
@@ -24,87 +25,684 @@ from slproxy.templates.plugins.openrouter import OpenRouterPlugin
 
 
 # 1. Google Antigravity
+ANTIGRAVITY_MODELS = {
+    "gemini-3.8-flash-high": ("MODEL_PLACEHOLDER_M318", 65536),
+    "gemini-3.8-flash-medium": ("MODEL_PLACEHOLDER_M319", 65536),
+    "gemini-3.8-flash-low": ("MODEL_PLACEHOLDER_M320", 65536),
+    "claude-sonnet-4-6": ("MODEL_PLACEHOLDER_M35", 64000),
+    "claude-opus-4-6-thinking": ("MODEL_PLACEHOLDER_M26", 64000),
+    "gpt-oss-120b-medium": ("MODEL_OPENAI_GPT_OSS_120B_MEDIUM", 32768),
+}
+
+
+def _antigravity_account(**overrides):
+    values = {
+        "id": "acc_g",
+        "provider_id": "google_antigravity",
+        "name": "GTest",
+        "api_key": "test-key",
+    }
+    values.update(overrides)
+    return Account(**values)
+
+
+def _antigravity_messages():
+    return [
+        {"role": "system", "content": "You are a test assistant."},
+        {"role": "user", "content": "List the files"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "toolu_abc",
+                    "type": "function",
+                    "function": {"name": "run_command", "arguments": '{"cmd":"ls"}'},
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "toolu_abc",
+            "name": "run_command",
+            "content": "a.txt\nb.txt",
+        },
+    ]
+
+
+def _antigravity_tools():
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "run_command",
+                "description": "Run a shell command",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"cmd": {"type": "string"}},
+                    "required": ["cmd"],
+                },
+            },
+        }
+    ]
+
+
 def test_google_antigravity():
     plugin = GoogleAntigravityPlugin()
     assert plugin.id == "google_antigravity"
     assert plugin.name == "Google Antigravity"
     assert plugin.format == "antigravity"
-    assert plugin.default_base_url == "https://antigravity.google"
+    assert plugin.default_base_url == "https://daily-cloudcode-pa.googleapis.com"
+    assert plugin.DEFAULT_PROJECT == "aicode-consumers"
+    assert plugin.USER_AGENT == (
+        "antigravity/cli/1.5.2 "
+        "(aidev_client; os_type=linux; arch=amd64; cl=1015175089; "
+        "auth_method=consumer)"
+    )
 
-    # Verify models
+    # Verify the six model IDs exposed by `agy models`.
     model_ids = {m.id for m in plugin.models}
-    assert "gemini-3.8-flash-high" in model_ids
-    assert "gemini-3.1-pro-high" in model_ids
-    assert "claude-sonnet-5-5-high" in model_ids
+    assert model_ids == set(ANTIGRAVITY_MODELS)
+    for model in plugin.models:
+        model_enum, max_output = ANTIGRAVITY_MODELS[model.id]
+        assert model.extra["model_enum"] == model_enum
+        assert model.max_output_tokens == max_output
+        assert model.supports_streaming is True
+        assert model.supports_tools is True
 
-    account = Account(id="acc_g", provider_id="google_antigravity", name="GTest", api_key="test-key")
-
-    # Header generation contains 9Router trajectory, request IDs, and client markers
+    account = _antigravity_account()
     headers = plugin.build_headers(account)
-    assert headers["User-Agent"] == "Antigravity-IDE/1.0"
-    assert headers["Authorization"] == "Bearer test-key"
-    assert headers["x-goog-api-client"] == "ide/antigravity"
-    assert "x-trajectory-id" in headers
-    assert "x-ide-request-id" in headers
-    assert "x-request-id" in headers
+    assert headers == {
+        "Content-Type": "application/json",
+        "User-Agent": plugin.USER_AGENT,
+        "Accept-Encoding": "gzip",
+        "Authorization": "Bearer test-key",
+    }
 
-    # Verify 9Router trajectory ID format: agent/<conversation_id>/<timestamp>/<trajectory_id>/<step>
-    traj_id = headers["x-trajectory-id"]
-    parts = traj_id.split("/")
-    assert len(parts) == 5
-    assert parts[0] == "agent"
-    uuid.UUID(parts[1])  # Valid conversation UUID derived from seed
-    assert int(parts[2]) > 0  # Valid timestamp integer
-    uuid.UUID(parts[3])  # Valid trajectory UUID derived from seed
-    assert parts[4] == "1"  # Step counter
+    # agy does not send any of the old IDE / 9Router fingerprint headers.
+    for stale in (
+        "x-goog-api-client",
+        "x-trajectory-id",
+        "x-ide-request-id",
+        "x-request-id",
+        "Accept",
+    ):
+        assert stale not in headers
 
-    assert headers["x-ide-request-id"].startswith("ide_req_")
-    assert headers["x-request-id"] == headers["x-ide-request-id"]
 
-    # Request transformation strips all Google-rejected parameters and injects missing telemetry
+def test_google_antigravity_request_envelope():
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account()
     req = ProxyRequest(
-        url="https://antigravity.google/v1/generate",
+        url="https://ignored.example/v1/chat/completions",
         headers={},
         body={
-            "prompt": "Hello world",
-            "temperature": 0.7,
-            "output_config": {"format": "json"},
-            "thinking": {"enabled": True},
-            "reasoning_effort": "high",
-            "reasoning": "enabled",
-            "enable_thinking": True,
-            "thinking_budget": 2048,
-            "thinkingConfig": {"thinkingBudget": 2048},
-            "frequency_penalty": 0.5,
-            "presence_penalty": 0.2,
-            "disallowed_field": "remove_me",
+            "model": "gemini-3.8-flash-medium",
+            "messages": _antigravity_messages(),
+            "tools": _antigravity_tools(),
+        },
+        is_stream=False,
+        model="gemini-3.8-flash-medium",
+    )
+
+    transformed = plugin.transform_request(req, account)
+    assert transformed.url == (
+        "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent"
+    )
+    assert transformed.headers["Authorization"] == "Bearer test-key"
+
+    body = transformed.body
+    assert body["project"] == "aicode-consumers"
+    assert body["model"] == "gemini-3.8-flash-medium"
+    assert body["userAgent"] == "antigravity"
+    assert body["requestType"] == "agent"
+
+    match = re.fullmatch(
+        r"agent/([0-9a-f-]{36})/(\d+)/([0-9a-f-]{36})/(\d+)",
+        body["requestId"],
+    )
+    assert match is not None
+    conversation_id, timestamp, trajectory_id, step = match.groups()
+    assert int(timestamp) > 0
+    assert step == "3"
+
+    inner = body["request"]
+    assert inner["contents"] == [
+        {"role": "user", "parts": [{"text": "List the files"}]},
+        {
+            "role": "model",
+            "parts": [
+                {
+                    "functionCall": {
+                        "name": "run_command",
+                        "args": {"cmd": "ls"},
+                        "id": "toolu_abc",
+                    }
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "functionResponse": {
+                        "name": "run_command",
+                        "response": {"output": "a.txt\nb.txt"},
+                        "id": "toolu_abc",
+                    }
+                }
+            ],
+        },
+    ]
+    assert inner["systemInstruction"] == {
+        "role": "user",
+        "parts": [{"text": "You are a test assistant."}],
+    }
+    assert inner["tools"] == [
+        {
+            "functionDeclarations": [
+                {
+                    "name": "run_command",
+                    "description": "Run a shell command",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {"cmd": {"type": "STRING"}},
+                        "required": ["cmd"],
+                    },
+                }
+            ]
+        }
+    ]
+
+    labels = inner["labels"]
+    assert labels["cascade_id"] == conversation_id
+    assert labels["root_cascade_id"] == conversation_id
+    assert labels["trajectory_id"] == trajectory_id
+    assert labels["last_step_index"] == "2"
+    assert labels["request_id"] == f"{trajectory_id}-1"
+    assert labels["model_enum"] == "MODEL_PLACEHOLDER_M319"
+    assert labels["used_claude"] == "false"
+    assert labels["used_claude_conservative"] == "false"
+    assert labels["used_non_gemini_model"] == "false"
+
+    assert inner["generationConfig"] == {
+        "maxOutputTokens": 65536,
+        "thinkingConfig": {"includeThoughts": True, "thinkingLevel": "MEDIUM"},
+    }
+    assert int(inner["sessionId"]) == int(plugin._session_id(account))
+
+    # The hook is idempotent: the router and proxy engine both call it.
+    again = plugin.transform_request(transformed, account)
+    assert again.body == body
+    assert again.url == transformed.url
+
+    # Conversation and trajectory IDs are deterministic for the same input.
+    repeated = plugin.transform_request(
+        ProxyRequest(
+            url="https://ignored.example/v1/chat/completions",
+            body={
+                "model": "gemini-3.8-flash-medium",
+                "messages": _antigravity_messages(),
+                "tools": _antigravity_tools(),
+            },
+            is_stream=False,
+            model="gemini-3.8-flash-medium",
+        ),
+        account,
+    )
+    repeated_match = re.fullmatch(
+        r"agent/([0-9a-f-]{36})/(\d+)/([0-9a-f-]{36})/(\d+)",
+        repeated.body["requestId"],
+    )
+    assert repeated_match is not None
+    assert repeated_match.group(1) == conversation_id
+    assert repeated_match.group(3) == trajectory_id
+
+    # A different account produces a different conversation/session.
+    other = plugin.transform_request(
+        ProxyRequest(
+            url="https://ignored.example/v1/chat/completions",
+            body={
+                "model": "gemini-3.8-flash-medium",
+                "messages": _antigravity_messages(),
+                "tools": _antigravity_tools(),
+            },
+            is_stream=False,
+            model="gemini-3.8-flash-medium",
+        ),
+        _antigravity_account(id="acc_other"),
+    )
+    other_match = re.fullmatch(
+        r"agent/([0-9a-f-]{36})/(\d+)/([0-9a-f-]{36})/(\d+)",
+        other.body["requestId"],
+    )
+    assert other_match is not None
+    assert other_match.group(1) != conversation_id
+    assert other.body["request"]["sessionId"] != inner["sessionId"]
+
+
+def test_google_antigravity_stream_url_and_overrides():
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account(
+        id="acc_stream_url",
+        base_url="https://custom.example",
+        extra_config={"project": "custom-project", "session_id": "12345"},
+    )
+    req = ProxyRequest(
+        url="https://ignored.example/v1/chat/completions",
+        body={
+            "model": "claude-sonnet-4-6",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": True,
+        },
+        is_stream=True,
+        model="claude-sonnet-4-6",
+    )
+
+    transformed = plugin.transform_request(req, account)
+    assert transformed.url == "https://custom.example/v1internal:streamGenerateContent?alt=sse"
+    assert transformed.body["project"] == "custom-project"
+    assert transformed.body["request"]["sessionId"] == "12345"
+    assert transformed.body["request"]["labels"]["model_enum"] == "MODEL_PLACEHOLDER_M35"
+
+    # Clean up the streaming state created for this request.
+    plugin.finalize_stream(account, transformed.metadata)
+
+
+@pytest.mark.parametrize(
+    ("model", "model_enum", "used_claude", "used_non_gemini", "max_output", "thinking"),
+    [
+        (
+            "gemini-3.8-flash-high",
+            "MODEL_PLACEHOLDER_M318",
+            "false",
+            "false",
+            65536,
+            {"includeThoughts": True, "thinkingLevel": "HIGH"},
+        ),
+        (
+            "gemini-3.8-flash-low",
+            "MODEL_PLACEHOLDER_M320",
+            "false",
+            "false",
+            65536,
+            {"includeThoughts": True, "thinkingLevel": "LOW"},
+        ),
+        (
+            "claude-sonnet-4-6",
+            "MODEL_PLACEHOLDER_M35",
+            "true",
+            "true",
+            64000,
+            {"includeThoughts": True, "thinkingBudget": 1024},
+        ),
+        (
+            "claude-opus-4-6-thinking",
+            "MODEL_PLACEHOLDER_M26",
+            "true",
+            "true",
+            64000,
+            {"includeThoughts": True, "thinkingBudget": 1024},
+        ),
+        (
+            "gpt-oss-120b-medium",
+            "MODEL_OPENAI_GPT_OSS_120B_MEDIUM",
+            "false",
+            "true",
+            32768,
+            {"includeThoughts": True, "thinkingBudget": 8192},
+        ),
+    ],
+)
+def test_google_antigravity_model_envelopes(
+    model, model_enum, used_claude, used_non_gemini, max_output, thinking
+):
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account(id=f"acc_{model}")
+    req = ProxyRequest(
+        url="https://ignored.example/v1/chat/completions",
+        body={"model": model, "messages": [{"role": "user", "content": "hello"}]},
+        is_stream=False,
+        model=model,
+    )
+
+    body = plugin.transform_request(req, account).body
+    labels = body["request"]["labels"]
+    assert body["model"] == model
+    assert labels["model_enum"] == model_enum
+    assert labels["used_claude"] == used_claude
+    assert labels["used_claude_conservative"] == used_claude
+    assert labels["used_non_gemini_model"] == used_non_gemini
+    assert body["request"]["generationConfig"] == {
+        "maxOutputTokens": max_output,
+        "thinkingConfig": thinking,
+    }
+
+
+def test_google_antigravity_alias_and_unknown_model():
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account(id="acc_alias")
+
+    alias_req = ProxyRequest(
+        url="https://ignored.example/v1/chat/completions",
+        body={"model": "gemini-3.8-flash", "messages": [{"role": "user", "content": "hi"}]},
+        is_stream=False,
+        model="gemini-3.8-flash",
+    )
+    alias_body = plugin.transform_request(alias_req, account).body
+    assert alias_body["model"] == "gemini-3.8-flash-high"
+    assert alias_body["request"]["labels"]["model_enum"] == "MODEL_PLACEHOLDER_M318"
+
+    unknown_req = ProxyRequest(
+        url="https://ignored.example/v1/chat/completions",
+        body={
+            "model": "claude-future-model",
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+        is_stream=False,
+        model="claude-future-model",
+    )
+    unknown_body = plugin.transform_request(unknown_req, account).body
+    assert unknown_body["model"] == "claude-future-model"
+    assert unknown_body["request"]["labels"]["model_enum"] == "MODEL_PLACEHOLDER_M35"
+    assert unknown_body["request"]["generationConfig"]["maxOutputTokens"] == 64000
+
+
+def test_google_antigravity_stream_conversion():
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account(id="acc_stream_convert")
+    req = ProxyRequest(
+        url="https://ignored.example/v1/chat/completions",
+        body={
+            "model": "claude-sonnet-4-6",
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": True,
+        },
+        is_stream=True,
+        model="claude-sonnet-4-6",
+    )
+    plugin.transform_request(req, account)
+
+    events = [
+        {
+            "response": {
+                "candidates": [{"content": {"role": "model", "parts": [{"text": ""}]}}],
+                "modelVersion": "claude-sonnet-4-6",
+            }
+        },
+        {
+            "response": {
+                "candidates": [
+                    {"content": {"role": "model", "parts": [{"thought": True, "text": "Let me think"}]}}
+                ]
+            }
+        },
+        {
+            "response": {
+                "candidates": [{"content": {"role": "model", "parts": [{"text": "Hello"}]}}]
+            }
+        },
+        {
+            "response": {
+                "candidates": [
+                    {
+                        "content": {"role": "model", "parts": [{"text": ""}]},
+                        "finishReason": "STOP",
+                    }
+                ]
+            }
+        },
+        # GPT-OSS style usage-only event after the finish event.
+        {
+            "response": {
+                "usageMetadata": {
+                    "promptTokenCount": 100,
+                    "candidatesTokenCount": 8,
+                    "totalTokenCount": 108,
+                    "cachedContentTokenCount": 20,
+                }
+            }
+        },
+    ]
+    raw = b"".join(
+        b"data: " + json.dumps(event).encode("utf-8") + b"\n\n" for event in events
+    )
+
+    output = b""
+    for index in range(0, len(raw), 17):
+        output += plugin.transform_stream_chunk(raw[index:index + 17], account)
+    output += plugin.finalize_stream(account, req.metadata)
+
+    text = output.decode("utf-8")
+    assert text.rstrip().endswith("data: [DONE]")
+    frames = [
+        json.loads(line[len("data: "):])
+        for line in text.splitlines()
+        if line.startswith("data: ") and line[len("data: "):] != "[DONE]"
+    ]
+
+    first = frames[0]["choices"][0]
+    assert first["delta"]["role"] == "assistant"
+    assert first["finish_reason"] is None
+
+    deltas = [frame["choices"][0]["delta"] for frame in frames if frame["choices"]]
+    assert any(delta.get("reasoning_content") == "Let me think" for delta in deltas)
+    assert any(delta.get("content") == "Hello" for delta in deltas)
+
+    finish = next(
+        frame for frame in frames if frame["choices"] and frame["choices"][0]["finish_reason"]
+    )
+    assert finish["choices"][0]["finish_reason"] == "stop"
+    assert "usage" not in finish
+
+    # The usage-only event is emitted as a separate usage chunk, matching OpenAI.
+    usage_only = [frame for frame in frames if frame["choices"] == []]
+    assert len(usage_only) == 1
+    assert usage_only[0]["usage"] == {
+        "prompt_tokens": 100,
+        "completion_tokens": 8,
+        "total_tokens": 108,
+        "prompt_tokens_details": {"cached_tokens": 20},
+    }
+    assert len({frame["id"] for frame in frames}) == 1
+
+
+def test_google_antigravity_stream_tool_calls():
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account(id="acc_stream_tools")
+    req = ProxyRequest(
+        url="https://ignored.example/v1/chat/completions",
+        body={
+            "model": "gemini-3.8-flash-high",
+            "messages": [{"role": "user", "content": "run ls"}],
+            "stream": True,
+        },
+        is_stream=True,
+        model="gemini-3.8-flash-high",
+    )
+    plugin.transform_request(req, account)
+
+    events = [
+        {
+            "response": {
+                "candidates": [
+                    {
+                        "content": {
+                            "role": "model",
+                            "parts": [
+                                {
+                                    "functionCall": {
+                                        "id": "toolu_stream",
+                                        "name": "run_command",
+                                        "args": {"cmd": "ls"},
+                                    }
+                                }
+                            ],
+                        }
+                    }
+                ],
+                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 2},
+            }
+        },
+        {
+            "response": {
+                "candidates": [
+                    {
+                        "content": {"role": "model", "parts": [{"text": ""}]},
+                        "finishReason": "STOP",
+                    }
+                ],
+                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 2},
+            }
+        },
+    ]
+    raw = b"".join(
+        b"data: " + json.dumps(event).encode("utf-8") + b"\n\n" for event in events
+    )
+
+    output = plugin.transform_stream_chunk(raw, account)
+    output += plugin.finalize_stream(account, req.metadata)
+    frames = [
+        json.loads(line[len("data: "):])
+        for line in output.decode("utf-8").splitlines()
+        if line.startswith("data: ") and line[len("data: "):] != "[DONE]"
+    ]
+
+    tool_delta = next(
+        frame["choices"][0]["delta"]["tool_calls"][0]
+        for frame in frames
+        if frame["choices"] and frame["choices"][0]["delta"].get("tool_calls")
+    )
+    assert tool_delta["id"] == "toolu_stream"
+    assert tool_delta["function"] == {"name": "run_command", "arguments": '{"cmd":"ls"}'}
+
+    finish = next(
+        frame for frame in frames if frame["choices"] and frame["choices"][0]["finish_reason"]
+    )
+    assert finish["choices"][0]["finish_reason"] == "tool_calls"
+
+
+def test_google_antigravity_nonstream_response():
+    plugin = GoogleAntigravityPlugin()
+    account = _antigravity_account(id="acc_response")
+    response = ProxyResponse(
+        status_code=200,
+        body={
+            "response": {
+                "candidates": [
+                    {
+                        "content": {
+                            "role": "model",
+                            "parts": [
+                                {"thought": True, "text": "thinking"},
+                                {"text": "I will run that."},
+                                {
+                                    "functionCall": {
+                                        "id": "toolu_resp",
+                                        "name": "run_command",
+                                        "args": {"cmd": "ls"},
+                                    }
+                                },
+                            ],
+                        },
+                        "finishReason": "STOP",
+                    }
+                ],
+                "usageMetadata": {
+                    "promptTokenCount": 12,
+                    "candidatesTokenCount": 3,
+                    "totalTokenCount": 15,
+                    "thoughtsTokenCount": 2,
+                },
+                "modelVersion": "gemini-3.8-flash-high",
+            }
         },
     )
-    transformed = plugin.transform_request(req, account)
-    assert transformed.headers["User-Agent"] == "Antigravity-IDE/1.0"
-    assert transformed.headers["x-goog-api-client"] == "ide/antigravity"
-    assert transformed.headers["Authorization"] == "Bearer test-key"
-    assert transformed.headers["x-trajectory-id"].startswith("agent/")
-    assert transformed.headers["x-ide-request-id"].startswith("ide_req_")
 
-    # Completely stripped fields
-    for rejected in [
-        "output_config",
-        "thinking",
-        "reasoning_effort",
-        "reasoning",
-        "enable_thinking",
-        "thinking_budget",
-        "thinkingConfig",
-        "frequency_penalty",
-        "presence_penalty",
-        "disallowed_field",
-    ]:
-        assert rejected not in transformed.body
+    converted = plugin.transform_response(response, account)
+    assert converted.body["object"] == "chat.completion"
+    assert converted.body["model"] == "gemini-3.8-flash-high"
+    choice = converted.body["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["message"]["content"] == "I will run that."
+    assert choice["message"]["reasoning_content"] == "thinking"
+    assert choice["message"]["tool_calls"] == [
+        {
+            "id": "toolu_resp",
+            "type": "function",
+            "function": {"name": "run_command", "arguments": '{"cmd":"ls"}'},
+        }
+    ]
+    assert converted.body["usage"] == {
+        "prompt_tokens": 12,
+        "completion_tokens": 3,
+        "total_tokens": 15,
+        "completion_tokens_details": {"reasoning_tokens": 2},
+    }
 
-    # Retained valid fields
-    assert transformed.body["prompt"] == "Hello world"
-    assert transformed.body["temperature"] == 0.7
+
+def test_google_antigravity_error_detection():
+    plugin = GoogleAntigravityPlugin()
+
+    quota = plugin.detect_error_or_limit(
+        429,
+        json.dumps(
+            {
+                "error": {
+                    "status": "RESOURCE_EXHAUSTED",
+                    "message": "Individual quota reached. Please upgrade.",
+                    "details": [{"retryDelay": "120s"}],
+                }
+            }
+        ),
+        {},
+    )
+    assert quota.is_error is True
+    assert quota.is_rate_limited is True
+    assert quota.should_fallback is False
+    assert quota.cooldown_seconds == 120.0
+
+    auth = plugin.detect_error_or_limit(
+        401,
+        json.dumps({"error": {"status": "UNAUTHENTICATED", "message": "Bad token"}}),
+        {},
+    )
+    assert auth.is_error is True
+    assert auth.is_rate_limited is True
+    assert auth.cooldown_seconds == 3600.0
+    assert auth.should_fallback is False
+    assert auth.error_message == "Bad token"
+
+    quota_reset_at = time.time() + 90
+    quota_409 = plugin.detect_error_or_limit(
+        409,
+        json.dumps({
+            "error": {
+                "status": "RESOURCE_EXHAUSTED",
+                "message": "Quota exhausted",
+                "details": [{
+                    "metadata": {
+                        "quotaResetTimeStamp": time.strftime(
+                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(quota_reset_at)
+                        )
+                    }
+                }],
+            }
+        }),
+        {},
+    )
+    assert quota_409.is_rate_limited is True
+    assert quota_409.should_fallback is False
+    assert 85 <= quota_409.cooldown_seconds <= 90
+
+    server = plugin.detect_error_or_limit(503, "", {})
+    assert server.is_error is True
+    assert server.is_rate_limited is False
+    assert server.cooldown_seconds == 15.0
+
+    ok = plugin.detect_error_or_limit(200, "{}", {})
+    assert ok.is_error is False
+    assert ok.should_fallback is False
 
 
 # 2. OpenAI Codex

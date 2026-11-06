@@ -188,6 +188,14 @@ class ProxyEngine:
                             chunk = chunk.encode("utf-8")
                         if len(chunk) > 0:
                             yield chunk
+
+                final_chunk = plugin.finalize_stream(account, req.metadata)
+                if inspect.iscoroutine(final_chunk):
+                    final_chunk = await final_chunk
+                if final_chunk:
+                    if isinstance(final_chunk, str):
+                        final_chunk = final_chunk.encode("utf-8")
+                    yield final_chunk
             finally:
                 await upstream_resp.aclose()
 

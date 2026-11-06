@@ -92,6 +92,29 @@ The centerpiece of SLProxy is its dynamic plugin architecture. Every provider is
 4. Click **Save & Deploy**: the Python code is re-compiled and hot-swapped into the running server in memory in **under 1 second** (`< 1s`).
 5. All subsequent requests instantly execute the updated Python code—no server downtime or restarts.
 
+### Provider variables and model options
+
+A plugin can declare provider-wide controls with `settings_schema`. The WebUI renders supported types (`string`, `password`, `number`, `integer`, `boolean`, `select`, `textarea`, and `json`), and the saved values are available as `self.settings` or `self.get_setting(...)`. Per-model `options` are editable in the provider model list and arrive on each `ProxyRequest` as `request.metadata["model_options"]`; provider variables are also attached as `request.metadata["provider_settings"]`.
+
+```python
+settings_schema = [
+    {"key": "api_mode", "label": "API mode", "type": "select", "default": "standard",
+     "options": [{"value": "standard", "label": "Standard"}, "compat"]},
+    {"key": "send_beta_header", "label": "Enable beta header", "type": "boolean", "default": False},
+]
+
+def transform_request(self, request, account):
+    mode = request.metadata["provider_settings"].get("api_mode", "standard")
+    model_options = request.metadata["model_options"]
+    if model_options.get("upstream_model_id"):
+        request.body["model"] = model_options["upstream_model_id"]
+    if mode == "compat":
+        request.headers["X-API-Mode"] = "compat"
+    return request
+```
+
+Provider variables and model definitions/options are stored in SQLite and applied after plugin reload. Model removal is persisted, including when a provider has zero remaining models.
+
 ### Example Plugin: Quota Interceptor & Header Injection
 ```python
 from slproxy.core.plugin_base import BasePlugin, ModelInfo, Account, ProxyRequest, ProxyResponse, ErrorCheckResult
@@ -133,7 +156,7 @@ class CustomAIPlugin(BasePlugin):
 
 | Provider | Plugin ID | Protocol | Key Models | Special Capabilities |
 |:---|:---|:---|:---|:---|
-| **Google Antigravity** | `antigravity` | OpenAI | `gemini-2.0-flash`, `gemini-2.0-flash-thinking`, `gemini-1.5-pro` | Gemini 2.0 native streaming, `RESOURCE_EXHAUSTED` quota failover |
+| **Google Antigravity** | `google_antigravity` | Antigravity (Cloud Code) | `gemini-3.8-flash-high`, `gemini-3.8-flash-medium`, `gemini-3.8-flash-low`, `claude-sonnet-4-6`, `claude-opus-4-6-thinking`, `gpt-oss-120b-medium` | Wire-compatible with the official `agy` CLI (`v1internal:streamGenerateContent`), `RESOURCE_EXHAUSTED` quota failover |
 | **OpenAI Codex** | `codex` | OpenAI | `gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini` | Reasoning model parameters, tool calls, multi-tier key balancing |
 | **Claude Code** | `claude` | Anthropic | `claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-opus` | Anthropic Messages format, SSE streaming event transformers |
 | **OpenRouter** | `openrouter` | OpenAI | `deepseek/deepseek-r1`, `meta-llama/llama-3.3-70b` | Universal gateway aggregator routing |
@@ -251,7 +274,7 @@ curl -X POST http://localhost:8080/routerapi/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer slp-live-cursor-e9182ab47c8d901f" \
   -d '{
-    "model": "gemini-2.0-flash",
+    "model": "gemini-3.8-flash-high",
     "messages": [
       {"role": "system", "content": "You are a helpful coding assistant."},
       {"role": "user", "content": "Write a Python function to calculate fibonacci numbers."}

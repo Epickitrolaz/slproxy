@@ -1284,7 +1284,7 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
             <i data-lucide="cpu" class="w-5 h-5 text-zinc-300"></i>
           </div>
           <div>
-            <h3 class="text-base font-bold text-white">Add Supported Model</h3>
+            <h3 id="modal-add-model-title" class="text-base font-bold text-white">Add Supported Model</h3>
             <p id="modal-add-model-provider-badge" class="text-xs text-zinc-400 font-mono">Provider: —</p>
           </div>
         </div>
@@ -1315,6 +1315,12 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
             <label class="block font-medium text-zinc-300 mb-1">Max Output Tokens</label>
             <input type="number" id="add-model-output" placeholder="4096" min="256" step="256" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono text-sm focus:outline-none focus:border-white/30 min-h-[44px]" />
           </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-zinc-300 mb-1">Model Options (JSON)</label>
+          <textarea id="add-model-options" rows="4" placeholder='{"upstream_model_id":"provider/model-id","temperature":0.2}' class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3.5 py-2.5 font-mono text-xs focus:outline-none focus:border-white/30"></textarea>
+          <p class="text-[11px] text-zinc-500 mt-1">Provider-specific options are stored with this model and exposed to plugin hooks.</p>
         </div>
 
         <div class="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
