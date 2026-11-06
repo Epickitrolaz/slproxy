@@ -573,3 +573,88 @@ async def test_account_level_model_overrides_priority_filtering(setup_admin_app)
     assert chat_resp.status_code == 200
     assert "choices" in chat_resp.json()
     assert routed_accounts == [acc2_id]
+
+# -----------------------------------------------------------------------------
+# Editor code pipeline (Issue #16): code in plugin list, template fallbacks
+# -----------------------------------------------------------------------------
+
+async def test_get_plugins_includes_code_and_code_available(setup_admin_app):
+    """Plugin entries expose code/code_available when source is on disk."""
+    client = setup_admin_app["client"]
+    pm = setup_admin_app["pm"]
+    plugins_dir = setup_admin_app["plugins_dir"]
+
+    # Give the sample plugin a real source file on disk (the fixture registers
+    # the instance in-memory only).
+    (plugins_dir / "sampleplugin.py").write_text(
+        "from slproxy.core.plugin_base import BasePlugin\n\n"
+        "class SampleProviderPlugin(BasePlugin):\n"
+        "    id = \"sampleplugin\"\n"
+        "    name = \"Sample Provider\"\n",
+        encoding="utf-8",
+    )
+    pm.plugin_files["sampleplugin"] = plugins_dir / "sampleplugin.py"
+
+    resp = await client.get("/api/plugins")
+    assert resp.status_code == 200
+    plugins = resp.json()
+    assert len(plugins) >= 1
+    entry = next(p for p in plugins if p["id"] == "sampleplugin")
+    assert entry.get("code_available") is True
+    assert isinstance(entry.get("code"), str)
+    assert "BasePlugin" in entry["code"]
+
+
+async def test_get_plugin_code_for_uninstalled_template(setup_admin_app):
+    """GET /api/plugins/{id}/code must work for templates that are not installed."""
+    client = setup_admin_app["client"]
+    pm = setup_admin_app["pm"]
+
+    assert "google_antigravity" not in pm.plugins
+    resp = await client.get("/api/plugins/google_antigravity/code")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == "google_antigravity"
+    assert "BasePlugin" in data["code"]
+    assert '"google_antigravity"' in data["code"]
+    # Real template source, not the synthesized fallback
+    assert data.get("fallback") is not True
+
+
+async def test_get_plugin_code_unknown_id_returns_template_fallback(setup_admin_app):
+    """Unknown ids degrade to a marked synthesized template, never a 404."""
+    client = setup_admin_app["client"]
+
+    resp = await client.get("/api/plugins/definitely_not_a_real_plugin/code")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == "definitely_not_a_real_plugin"
+    assert "definitely_not_a_real_plugin" in data["code"]
+    assert data["fallback"] is True
+
+
+async def test_deploy_code_installs_uninstalled_template_plugin(setup_admin_app):
+    """Save & Deploy on a template id installs it: subsequent listing includes it."""
+    client = setup_admin_app["client"]
+    pm = setup_admin_app["pm"]
+
+    assert "google_antigravity" not in pm.plugins
+
+    code = '''
+from slproxy.core.plugin_base import BasePlugin, ModelInfo
+
+class AntigravityDeployed(BasePlugin):
+    id = "google_antigravity"
+    name = "Google Antigravity (deployed)"
+    default_base_url = "https://deployed.google"
+    format = "openai"
+    models = [ModelInfo(id="gemini-deployed", name="Gemini Deployed")]
+'''
+    resp = await client.post("/api/plugins/google_antigravity/code", json={"code": code})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deployed"
+    assert "google_antigravity" in pm.plugins
+
+    listing = await client.get("/api/plugins")
+    ids = {p["id"] for p in listing.json()}
+    assert "google_antigravity" in ids

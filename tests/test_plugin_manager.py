@@ -320,3 +320,35 @@ class MismatchedPlugin(BasePlugin):
     assert not (temp_plugins_dir / "intended_id.py").exists()
 
 
+
+
+def test_get_plugin_source_falls_back_to_templates_dir(temp_plugins_dir: Path):
+    """Uninstalled reference templates are readable sources via get_plugin_source."""
+    pm = PluginManager(temp_plugins_dir)
+
+    # Not installed, but a shipped reference template exists for this id
+    assert pm.get_plugin("google_antigravity") is None
+    source = pm.get_plugin_source("google_antigravity")
+    assert "BasePlugin" in source
+    assert "google_antigravity" in source
+
+    # Unknown ids still raise FileNotFoundError
+    import pytest
+    with pytest.raises(FileNotFoundError):
+        pm.get_plugin_source("no_such_plugin_anywhere")
+
+
+def test_installed_plugin_source_wins_over_template(temp_plugins_dir: Path):
+    """An installed plugin's file takes precedence over the templates dir."""
+    (temp_plugins_dir / "google_antigravity.py").write_text(
+        "from slproxy.core.plugin_base import BasePlugin\n\n"
+        "class InstalledVariant(BasePlugin):\n"
+        "    id = \"google_antigravity\"\n"
+        "    name = \"Installed Variant\"\n",
+        encoding="utf-8",
+    )
+    pm = PluginManager(temp_plugins_dir)
+    assert pm.discover_and_load_all() == 1
+    source = pm.get_plugin_source("google_antigravity")
+    assert "Installed Variant" in source
+    assert "IDE trajectory" not in source

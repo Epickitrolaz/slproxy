@@ -223,6 +223,20 @@ async def get_plugins(request: Request):
                 "account_count": account_counts.get(plugin.id, 0),
             })
 
+            # Editor contract: each entry carries the current Python source (or
+            # at least code_available) so the editor can hydrate without an
+            # extra round-trip when the source is reasonably sized.
+            source_code: Optional[str] = None
+            try:
+                source_code = pm.get_plugin_source(plugin.id)
+            except Exception:
+                source_code = None
+            if source_code is not None and len(source_code) <= 200_000:
+                plugin_list[-1]["code"] = source_code
+                plugin_list[-1]["code_available"] = True
+            else:
+                plugin_list[-1]["code_available"] = source_code is not None
+
     return plugin_list
 
 
@@ -258,6 +272,10 @@ async def toggle_plugin(plugin_id: str, request: Request):
 async def get_plugin_code(plugin_id: str, request: Request):
     """
     Return plugin source code.
+
+    Works for installed plugins and for reference templates that are available
+    but not installed. Degrades gracefully to a synthesized starting template
+    (marked with `fallback: true`) instead of 404, never blocking the editor.
     """
     pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
     db: Optional[Database] = getattr(request.app.state, "db", None)
@@ -266,8 +284,8 @@ async def get_plugin_code(plugin_id: str, request: Request):
     if pm:
         try:
             code = pm.get_plugin_source(plugin_id)
-        except (NotImplementedError, Exception):
-            pass
+        except Exception:
+            code = None
 
         if not code and plugin_id in getattr(pm, "plugin_files", {}):
             file_path = pm.plugin_files[plugin_id]
@@ -295,9 +313,10 @@ async def get_plugin_code(plugin_id: str, request: Request):
 
     if not code:
         plugin = pm.get_plugin(plugin_id) if pm else None
-        if not plugin:
-            raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
-        code = generate_plugin_template(plugin_id, plugin.name)
+        fallback = generate_plugin_template(
+            plugin_id, getattr(plugin, "name", plugin_id.replace("_", " ").title())
+        )
+        return {"id": plugin_id, "code": fallback, "fallback": True}
 
     return {"id": plugin_id, "code": code}
 
