@@ -96,6 +96,11 @@ class ModelAddRequest(BaseModel):
     supports_vision: bool = False
     pricing: Optional[Dict[str, float]] = None
     extra: Optional[Dict[str, Any]] = None
+    options: Optional[Dict[str, Any]] = None
+
+
+class PluginSettingsUpdateRequest(BaseModel):
+    settings: Dict[str, Any] = Field(default_factory=dict)
 
 
 # -----------------------------------------------------------------------------
@@ -180,14 +185,19 @@ async def get_plugins(request: Request):
             for row in await cur.fetchall():
                 account_counts[row["provider_id"]] = row["cnt"]
         try:
-            async with db.conn.execute("SELECT plugin_id, models FROM plugin_settings WHERE models IS NOT NULL") as cur:
+            async with db.conn.execute("SELECT plugin_id, models, variables FROM plugin_settings") as cur:
                 for row in await cur.fetchall():
                     p_id = row["plugin_id"]
-                    if pm and p_id in pm.plugins and row["models"]:
+                    if pm and p_id in pm.plugins:
                         try:
-                            persisted = [ModelInfo(**item) for item in json.loads(row["models"])]
-                            if persisted:
+                            if row["models"] is not None:
+                                persisted = [ModelInfo(**item) for item in json.loads(row["models"])]
                                 pm.plugins[p_id].models = persisted
+                        except Exception:
+                            pass
+                        try:
+                            variables = json.loads(row["variables"] or "{}")
+                            pm.plugins[p_id].set_settings(variables)
                         except Exception:
                             pass
         except Exception:
@@ -220,6 +230,8 @@ async def get_plugins(request: Request):
                 "default_base_url": plugin.default_base_url,
                 "enabled": getattr(plugin, "enabled", True),
                 "models": models_data,
+                "settings_schema": getattr(plugin, "settings_schema", []) or [],
+                "settings": dict(getattr(plugin, "settings", {}) or {}),
                 "account_count": account_counts.get(plugin.id, 0),
             })
 
@@ -238,6 +250,82 @@ async def get_plugins(request: Request):
                 plugin_list[-1]["code_available"] = source_code is not None
 
     return plugin_list
+
+
+def _validate_plugin_settings(plugin: BasePlugin, values: Dict[str, Any]) -> Dict[str, Any]:
+    schema_items = getattr(plugin, "settings_schema", []) or []
+    schema = {
+        item.get("key"): item
+        for item in schema_items
+        if isinstance(item, dict) and isinstance(item.get("key"), str)
+    }
+    unknown = set(values) - set(schema)
+    if unknown:
+        raise ValueError(f"Unknown provider variable(s): {', '.join(sorted(unknown))}")
+    missing = [
+        key for key, item in schema.items()
+        if item.get("required") and key not in values and item.get("default") in (None, "")
+    ]
+    if missing:
+        raise ValueError(f"Required provider variable(s) missing: {', '.join(missing)}")
+
+    validated: Dict[str, Any] = {}
+    for key, value in values.items():
+        item = schema[key]
+        kind = str(item.get("type", "string")).lower()
+        if kind in ("boolean", "bool"):
+            if not isinstance(value, bool):
+                raise ValueError(f"Provider variable '{key}' must be a boolean")
+        elif kind in ("integer", "int"):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"Provider variable '{key}' must be an integer")
+        elif kind in ("number", "float"):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"Provider variable '{key}' must be a number")
+        elif kind == "select":
+            choices = item.get("options") or []
+            allowed = {
+                choice.get("value") if isinstance(choice, dict) else choice
+                for choice in choices
+            }
+            if value not in allowed:
+                raise ValueError(f"Provider variable '{key}' is not an allowed option")
+        elif kind in ("string", "password", "textarea") and not isinstance(value, str):
+            raise ValueError(f"Provider variable '{key}' must be a string")
+
+        if item.get("required") and (value is None or value == ""):
+            raise ValueError(f"Provider variable '{key}' is required")
+        validated[key] = value
+    return validated
+
+
+@router.put("/plugins/{plugin_id}/settings")
+async def update_plugin_settings(
+    plugin_id: str, payload: PluginSettingsUpdateRequest, request: Request
+):
+    """Save user-editable provider variables and apply them immediately."""
+    pm: Optional[PluginManager] = getattr(request.app.state, "plugin_manager", None)
+    db: Optional[Database] = getattr(request.app.state, "db", None)
+    plugin = pm.get_plugin(plugin_id) if pm else None
+    if not plugin:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+    try:
+        values = _validate_plugin_settings(plugin, payload.settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    plugin.set_settings(values)
+    if db:
+        now = time.time()
+        await db.conn.execute(
+            """INSERT INTO plugin_settings (plugin_id, variables, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(plugin_id) DO UPDATE SET variables = excluded.variables,
+                updated_at = excluded.updated_at""",
+            (plugin_id, json.dumps(values), now),
+        )
+        await db.conn.commit()
+    return {"id": plugin_id, "settings": values, "status": "saved"}
 
 
 @router.post("/plugins/{plugin_id}/toggle")
@@ -447,16 +535,12 @@ async def add_plugin_model(plugin_id: str, payload: ModelAddRequest, request: Re
         supports_vision=payload.supports_vision,
         pricing=payload.pricing or {},
         extra=payload.extra or {},
+        options=payload.options or {},
     )
 
     plugin.add_model(model_info)
 
     if db:
-        try:
-            await db.conn.execute("ALTER TABLE plugin_settings ADD COLUMN models TEXT")
-            await db.conn.commit()
-        except Exception:
-            pass
         now = time.time()
         models_json = json.dumps([m.model_dump() for m in plugin.models])
         await db.conn.execute(
@@ -488,11 +572,6 @@ async def remove_plugin_model(plugin_id: str, model_id: str, request: Request):
         raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found in plugin '{plugin_id}'")
 
     if db:
-        try:
-            await db.conn.execute("ALTER TABLE plugin_settings ADD COLUMN models TEXT")
-            await db.conn.commit()
-        except Exception:
-            pass
         now = time.time()
         models_json = json.dumps([m.model_dump() for m in plugin.models])
         await db.conn.execute(

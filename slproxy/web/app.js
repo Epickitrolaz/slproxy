@@ -85,9 +85,9 @@ class CustomProviderPlugin(BasePlugin):
     {
       id: "google_antigravity",
       name: "Google Antigravity",
-      description: "Ultra-fast Google Gemini 2.0 Flash & Thinking models with quota failover",
-      format: "openai",
-      models_count: 3
+      description: "Google Antigravity Cloud Code models matching the official agy CLI",
+      format: "antigravity",
+      models_count: 6
     },
     {
       id: "openai_codex",
@@ -1289,6 +1289,45 @@ class CustomProviderPlugin(BasePlugin):
   // ---------------------------------------------------------------------------
   // RENDER: PLUGINS LIST
   // ---------------------------------------------------------------------------
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+  }
+
+  function renderPluginSettingControl(plugin, setting) {
+    const key = String(setting.key || '');
+    if (!key) return '';
+    const value = plugin.settings?.[key] ?? setting.default ?? '';
+    const id = `provider-setting-${plugin.id}-${key}`;
+    const safeId = escapeHtml(id);
+    const label = escapeHtml(setting.label || key);
+    const description = setting.description
+      ? `<p class="text-[11px] text-zinc-500 mt-1">${escapeHtml(setting.description)}</p>` : '';
+    const attr = `data-setting-key="${escapeHtml(key)}"`;
+    const kind = String(setting.type || 'string').toLowerCase();
+    let control = '';
+
+    if (kind === 'boolean' || kind === 'bool') {
+      control = `<input id="${safeId}" type="checkbox" ${attr} class="w-4 h-4 accent-zinc-200" ${value ? 'checked' : ''}>`;
+    } else if (kind === 'select') {
+      const options = (setting.options || []).map((option) => {
+        const optionValue = option && typeof option === 'object' ? option.value : option;
+        const optionLabel = option && typeof option === 'object' ? (option.label ?? optionValue) : option;
+        return `<option value="${escapeHtml(optionValue)}" ${String(value) === String(optionValue) ? 'selected' : ''}>${escapeHtml(optionLabel)}</option>`;
+      }).join('');
+      control = `<select id="${safeId}" ${attr} class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3 py-2">${options}</select>`;
+    } else if (kind === 'textarea' || kind === 'json') {
+      const text = kind === 'json' ? JSON.stringify(value, null, 2) : value;
+      control = `<textarea id="${safeId}" ${attr} rows="3" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3 py-2 font-mono text-xs">${escapeHtml(typeof text === 'string' ? text : JSON.stringify(text))}</textarea>`;
+    } else {
+      const inputType = kind === 'password' ? 'password' : (kind === 'number' || kind === 'integer' ? 'number' : 'text');
+      const inputValue = inputType === 'number' && value !== '' ? Number(value) : value;
+      control = `<input id="${safeId}" type="${inputType}" ${attr} value="${escapeHtml(inputValue)}" class="w-full bg-[#09090b] text-zinc-100 border border-white/10 rounded-lg px-3 py-2">`;
+    }
+    return `<label for="${safeId}" class="block text-xs font-medium text-zinc-300 mb-1">${label}${setting.required ? ' *' : ''}</label><div class="mb-3">${control}${description}</div>`;
+  }
+
   function renderPluginsList() {
     const emptyState = document.getElementById('plugins-empty-state');
     const container = document.getElementById('plugins-list-container');
@@ -1316,9 +1355,10 @@ class CustomProviderPlugin(BasePlugin):
             const mName = typeof m === 'object' && m.name && m.name !== mId ? m.name : '';
             return `
               <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#09090b] border border-white/10 font-mono text-xs text-zinc-200">
-                <span>${mId}</span>
-                ${mName ? `<span class="text-[11px] text-zinc-400 font-sans">(${mName})</span>` : ''}
-                <button type="button" class="btn-delete-model text-zinc-500 hover:text-rose-400 p-0.5 rounded transition-colors ml-0.5 focus:outline-none" data-plugin-id="${plugin.id}" data-model-id="${mId}" title="Remove model ${mId}">
+                <span>${escapeHtml(mId)}</span>
+                ${mName ? `<span class="text-[11px] text-zinc-400 font-sans">(${escapeHtml(mName)})</span>` : ''}
+                <button type="button" class="btn-edit-model text-zinc-500 hover:text-sky-300 p-0.5 rounded transition-colors" data-plugin-id="${escapeHtml(plugin.id)}" data-model-id="${escapeHtml(mId)}" title="Edit model options"><i data-lucide="settings-2" class="w-3.5 h-3.5"></i></button>
+                <button type="button" class="btn-delete-model text-zinc-500 hover:text-rose-400 p-0.5 rounded transition-colors ml-0.5 focus:outline-none" data-plugin-id="${escapeHtml(plugin.id)}" data-model-id="${escapeHtml(mId)}" title="Remove model ${escapeHtml(mId)}">
                   <i data-lucide="x" class="w-3.5 h-3.5"></i>
                 </button>
               </span>
@@ -1330,19 +1370,19 @@ class CustomProviderPlugin(BasePlugin):
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-lg bg-[#09090b] border border-white/10 flex items-center justify-center font-bold text-zinc-200 shrink-0">
-              <i data-lucide="${plugin.icon || 'cpu'}" class="w-5 h-5"></i>
+                <i data-lucide="${escapeHtml(plugin.icon || 'cpu')}" class="w-5 h-5"></i>
             </div>
             <div>
               <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <span>${plugin.name}</span>
-                <span class="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10">v${plugin.version || '1.0.0'}</span>
-                <span class="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10 uppercase">${plugin.format || 'OPENAI'}</span>
+                <span>${escapeHtml(plugin.name)}</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10">v${escapeHtml(plugin.version || '1.0.0')}</span>
+                <span class="text-xs px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 font-mono border border-white/10 uppercase">${escapeHtml(plugin.format || 'OPENAI')}</span>
               </h3>
-              <p class="text-sm text-zinc-400 line-clamp-1 mt-0.5">${plugin.description || ''}</p>
+              <p class="text-sm text-zinc-400 line-clamp-1 mt-0.5">${escapeHtml(plugin.description || '')}</p>
             </div>
           </div>
           <label class="relative inline-flex items-center cursor-pointer shrink-0">
-            <input type="checkbox" class="sr-only peer plugin-toggle" data-plugin-id="${plugin.id}" ${plugin.enabled !== false ? 'checked' : ''}>
+            <input type="checkbox" class="sr-only peer plugin-toggle" data-plugin-id="${escapeHtml(plugin.id)}" ${plugin.enabled !== false ? 'checked' : ''}>
             <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-zinc-200"></div>
           </label>
         </div>
@@ -1353,7 +1393,7 @@ class CustomProviderPlugin(BasePlugin):
               <span>Supported Models</span>
               <span class="text-zinc-500 font-mono text-[11px]">(${modelsList.length})</span>
             </span>
-            <button type="button" class="btn-add-model-trigger btn-secondary px-2.5 py-1 text-xs font-medium flex items-center gap-1.5 min-h-[32px] sm:min-h-[30px]" data-plugin-id="${plugin.id}" data-plugin-name="${plugin.name}">
+            <button type="button" class="btn-add-model-trigger btn-secondary px-2.5 py-1 text-xs font-medium flex items-center gap-1.5 min-h-[32px] sm:min-h-[30px]" data-plugin-id="${escapeHtml(plugin.id)}" data-plugin-name="${escapeHtml(plugin.name)}">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i>
               <span>Add Model</span>
             </button>
@@ -1363,13 +1403,20 @@ class CustomProviderPlugin(BasePlugin):
           </div>
         </div>
 
+        ${(plugin.settings_schema || []).length ? `
+          <form class="plugin-settings-form space-y-2 pt-3 border-t border-white/[0.06]" data-plugin-id="${escapeHtml(plugin.id)}">
+            <div class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Provider Variables</div>
+            ${(plugin.settings_schema || []).map((setting) => renderPluginSettingControl(plugin, setting)).join('')}
+            <div class="flex justify-end"><button type="submit" class="btn-secondary px-3 py-1.5 text-xs">Save Variables</button></div>
+          </form>` : ''}
+
         <div class="flex items-center justify-between pt-3 border-t border-white/[0.06] text-xs">
-          <span class="font-mono text-xs text-zinc-400">${plugin.id}.py</span>
+          <span class="font-mono text-xs text-zinc-400">${escapeHtml(plugin.id)}.py</span>
           <div class="flex items-center gap-2">
-            <button class="btn-secondary px-3.5 py-1.5 text-xs font-medium btn-edit-plugin-code min-h-[36px]" data-plugin-id="${plugin.id}">
+            <button class="btn-secondary px-3.5 py-1.5 text-xs font-medium btn-edit-plugin-code min-h-[36px]" data-plugin-id="${escapeHtml(plugin.id)}">
               Edit Code
             </button>
-            <button class="p-2 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors btn-delete-plugin min-w-[36px] min-h-[36px] flex items-center justify-center" data-plugin-id="${plugin.id}" title="Delete Plugin">
+            <button class="p-2 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors btn-delete-plugin min-w-[36px] min-h-[36px] flex items-center justify-center" data-plugin-id="${escapeHtml(plugin.id)}" title="Delete Plugin">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -1377,6 +1424,43 @@ class CustomProviderPlugin(BasePlugin):
       `;
 
       container.appendChild(card);
+    });
+
+    container.querySelectorAll('.plugin-settings-form').forEach((form) => {
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const pluginId = form.dataset.pluginId;
+        const plugin = state.plugins.find((entry) => entry.id === pluginId);
+        if (!plugin) return;
+        const settings = {};
+        let invalid = false;
+        for (const input of form.querySelectorAll('[data-setting-key]')) {
+          const key = input.dataset.settingKey;
+          const schema = (plugin.settings_schema || []).find((item) => item.key === key) || {};
+          const kind = String(schema.type || 'string').toLowerCase();
+          let value = input.type === 'checkbox' ? input.checked : input.value;
+          if (kind === 'integer' || kind === 'int') value = value === '' ? null : Number.parseInt(value, 10);
+          else if (kind === 'number' || kind === 'float') value = value === '' ? null : Number(value);
+          else if (kind === 'json') {
+            try { value = JSON.parse(value); }
+            catch { showToast(`Invalid JSON for '${key}'`, 'error'); invalid = true; break; }
+          }
+          settings[key] = value;
+        }
+        if (invalid) return;
+        const response = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/settings`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          showToast(result.detail || 'Could not save provider variables', 'error');
+          return;
+        }
+        plugin.settings = result.settings || settings;
+        showToast(`Provider variables saved for ${plugin.name}`, 'success');
+        renderPluginsList();
+      });
     });
 
     // Toggle plugin listener
@@ -1399,6 +1483,14 @@ class CustomProviderPlugin(BasePlugin):
         const pId = btn.getAttribute('data-plugin-id');
         const pName = btn.getAttribute('data-plugin-name') || pId;
         openAddModelModal(pId, pName);
+      });
+    });
+
+    container.querySelectorAll('.btn-edit-model').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const plugin = state.plugins.find((entry) => entry.id === btn.dataset.pluginId);
+        const model = (plugin?.models || []).find((item) => (typeof item === 'object' ? item.id : item) === btn.dataset.modelId);
+        if (plugin && model && typeof model === 'object') openAddModelModal(plugin.id, plugin.name, model);
       });
     });
 
@@ -1464,9 +1556,14 @@ class CustomProviderPlugin(BasePlugin):
     if (!plugin) return;
 
     // Send DELETE to backend API: /api/plugins/{id}/models/{model_id}
-    await fetch(`/api/plugins/${pluginId}/models/${encodeURIComponent(modelId)}`, {
+    const response = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/models/${encodeURIComponent(modelId)}`, {
       method: 'DELETE'
     }).catch(() => null);
+    if (!response?.ok) {
+      const error = await response?.json().catch(() => ({}));
+      showToast(error?.detail || 'Could not remove model', 'error');
+      return;
+    }
 
     // Update in-memory state
     if (plugin.models) {
@@ -1483,7 +1580,7 @@ class CustomProviderPlugin(BasePlugin):
   }
 
   // Open Add Model Modal (Requirement 4)
-  function openAddModelModal(pluginId, pluginName) {
+  function openAddModelModal(pluginId, pluginName, model = null) {
     const modal = document.getElementById('modal-add-model');
     const form = document.getElementById('form-add-model');
     const badge = document.getElementById('modal-add-model-provider-badge');
@@ -1492,8 +1589,17 @@ class CustomProviderPlugin(BasePlugin):
     if (!modal) return;
     if (form) form.reset();
 
+    const title = document.getElementById('modal-add-model-title');
+    if (title) title.textContent = model ? 'Edit Supported Model' : 'Add Supported Model';
+
     if (badge) badge.textContent = `Provider: ${pluginName} (${pluginId})`;
     if (hiddenInput) hiddenInput.value = pluginId;
+    document.getElementById('add-model-id').value = model?.id || '';
+    document.getElementById('add-model-id').readOnly = Boolean(model);
+    document.getElementById('add-model-name').value = model?.name || '';
+    document.getElementById('add-model-context').value = model?.context_window ?? '';
+    document.getElementById('add-model-output').value = model?.max_output_tokens ?? '';
+    document.getElementById('add-model-options').value = JSON.stringify(model?.options || {}, null, 2);
 
     modal.classList.remove('hidden');
     setTimeout(() => {
@@ -1514,22 +1620,37 @@ class CustomProviderPlugin(BasePlugin):
       const contextVal = document.getElementById('add-model-context').value;
       const outputVal = document.getElementById('add-model-output').value;
 
-      const contextWindow = contextVal ? parseInt(contextVal, 10) : 128000;
-      const maxOutputTokens = outputVal ? parseInt(outputVal, 10) : 4096;
+      const contextWindow = contextVal ? parseInt(contextVal, 10) : null;
+      const maxOutputTokens = outputVal ? parseInt(outputVal, 10) : null;
+      let modelOptions = {};
+      try {
+        modelOptions = JSON.parse(document.getElementById('add-model-options').value || '{}');
+        if (!modelOptions || Array.isArray(modelOptions) || typeof modelOptions !== 'object') throw new Error('Expected an object');
+      } catch (error) {
+        showToast(`Model options must be a JSON object: ${error.message}`, 'error');
+        return;
+      }
 
       const newModel = {
         id: modelId,
         name: modelName,
         context_window: contextWindow,
-        max_output_tokens: maxOutputTokens
+        max_output_tokens: maxOutputTokens,
+        options: modelOptions
       };
 
       // POST to backend API: /api/plugins/{id}/models
-      await fetch(`/api/plugins/${pluginId}/models`, {
+      const response = await fetch(`/api/plugins/${encodeURIComponent(pluginId)}/models`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newModel)
       }).catch(() => null);
+      if (!response?.ok) {
+        const error = await response?.json().catch(() => ({}));
+        showToast(error?.detail || 'Could not save model', 'error');
+        return;
+      }
+      const savedModel = (await response.json().catch(() => null))?.model || newModel;
 
       // Update in-memory state
       const plugin = state.plugins.find((p) => p.id === pluginId);
@@ -1539,14 +1660,14 @@ class CustomProviderPlugin(BasePlugin):
         }
         const existingIdx = plugin.models.findIndex((m) => (typeof m === 'object' ? (m.id || m.name) : m) === modelId);
         if (existingIdx >= 0) {
-          plugin.models[existingIdx] = newModel;
+          plugin.models[existingIdx] = savedModel;
         } else {
-          plugin.models.push(newModel);
+          plugin.models.push(savedModel);
         }
       }
 
       document.getElementById('modal-add-model').classList.add('hidden');
-      showToast(`Model '${modelName}' added to ${plugin ? plugin.name : pluginId}!`, 'success');
+      showToast(`Model '${modelName}' saved for ${plugin ? plugin.name : pluginId}!`, 'success');
       renderPluginsList();
       renderDashboard();
       setupPlayground();

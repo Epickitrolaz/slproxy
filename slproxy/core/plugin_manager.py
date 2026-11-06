@@ -130,6 +130,10 @@ class PluginManager:
         self.load_times[plugin_instance.id] = elapsed
         setattr(plugin_instance, "last_load_time", elapsed)
 
+        previous_plugin = self.plugins.get(plugin_instance.id)
+        if previous_plugin is not None:
+            plugin_instance.set_settings(getattr(previous_plugin, "settings", {}))
+
         self.plugins[plugin_instance.id] = plugin_instance
         self.plugin_files[plugin_instance.id] = file_path
 

@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS plugin_settings (
     plugin_id TEXT PRIMARY KEY,
     enabled INTEGER DEFAULT 1,
     custom_code TEXT,
+    models TEXT,
+    variables TEXT,
     updated_at REAL
 );
 """

@@ -5,6 +5,7 @@ Tests for ProxyEngine
 import sys
 import json
 from pathlib import Path
+from typing import Optional
 
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -19,6 +20,22 @@ from slproxy.core.proxy_engine import ProxyEngine
 class MockPlugin(BasePlugin):
     id = "mock_provider"
     name = "Mock Provider"
+
+
+class FinalizeStreamPlugin(BasePlugin):
+    id = "finalize_stream"
+    name = "Finalize Stream Provider"
+
+    def finalize_stream(self, account: Account, metadata: Optional[dict] = None) -> bytes:
+        return b"data: [DONE]\n\n"
+
+
+class AsyncFinalizeStreamPlugin(BasePlugin):
+    id = "async_finalize_stream"
+    name = "Async Finalize Stream Provider"
+
+    async def finalize_stream(self, account: Account, metadata: Optional[dict] = None) -> bytes:
+        return b"data: [DONE]\n\n"
 
 
 class CustomTransformPlugin(BasePlugin):
@@ -266,6 +283,46 @@ async def test_execute_stream_transform_chunk(account):
         # 'hello' transformed into 'greetings'
         assert "greetings world" in combined
         assert "hello" not in combined
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("plugin_class", [FinalizeStreamPlugin, AsyncFinalizeStreamPlugin])
+async def test_execute_stream_finalize_hook(account, plugin_class):
+    """
+    Test that the plugin.finalize_stream hook runs after the upstream stream ends.
+    """
+    raw_content = b'data: {"delta": "hello"}\n\n'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=raw_content,
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        engine = ProxyEngine(client=client)
+        plugin = plugin_class()
+
+        proxy_req = ProxyRequest(
+            method="POST",
+            url="https://api.mock.test/v1/chat/completions",
+            is_stream=True,
+        )
+
+        status_code, _headers, stream_gen = await engine.execute_stream(
+            plugin, account, proxy_req
+        )
+        assert status_code == 200
+
+        received = []
+        async for chunk in stream_gen:
+            received.append(chunk)
+
+        combined = b"".join(received)
+        assert b"hello" in combined
+        assert combined.endswith(b"data: [DONE]\n\n")
 
 
 @pytest.mark.asyncio

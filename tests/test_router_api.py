@@ -23,6 +23,7 @@ from slproxy.core.plugin_manager import PluginManager
 from slproxy.core.proxy_engine import ProxyEngine
 from slproxy.db.database import Database
 from slproxy.main import app
+from slproxy.templates.plugins.google_antigravity import GoogleAntigravityPlugin
 
 pytestmark = pytest.mark.asyncio(loop_scope="function")
 
@@ -307,6 +308,35 @@ async def test_chat_completions_account_fallback_on_429(setup_app):
     async with db.conn.execute("SELECT success_count FROM accounts WHERE id = 'acc2'") as cur:
         row = await cur.fetchone()
         assert row["success_count"] >= 1
+
+
+async def test_antigravity_quota_does_not_fail_over_to_another_account(setup_app):
+    client = setup_app["client"]
+    db = setup_app["db"]
+    pm = setup_app["pm"]
+    proxy_engine = setup_app["proxy_engine"]
+    pm.plugins["google_antigravity"] = GoogleAntigravityPlugin()
+
+    await db.conn.execute(
+        "INSERT INTO accounts (id, provider_id, name, api_key, priority, is_active) VALUES ('ag1', 'google_antigravity', 'AG 1', 'key1', 1, 1)"
+    )
+    await db.conn.execute(
+        "INSERT INTO accounts (id, provider_id, name, api_key, priority, is_active) VALUES ('ag2', 'google_antigravity', 'AG 2', 'key2', 2, 1)"
+    )
+    await db.conn.commit()
+    proxy_engine.fail_account_ids.add("ag1")
+
+    resp = await client.post(
+        "/routerapi/v1/chat/completions",
+        json={
+            "model": "google_antigravity/gemini-3.8-flash-high",
+            "messages": [{"role": "user", "content": "Test quota stop"}],
+            "stream": False,
+        },
+    )
+
+    assert resp.status_code == 429
+    assert [account_id for account_id, _ in proxy_engine.request_history] == ["ag1"]
 
 
 async def test_chat_completions_all_accounts_exhausted_returns_503(setup_app):
