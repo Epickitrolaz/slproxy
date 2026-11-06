@@ -724,6 +724,15 @@ class CustomProviderPlugin(BasePlugin):
 
     populateEditorPluginDropdown();
 
+    // Issue #17: upgrade the editor target select to the custom obsidian
+    // dropdown (no-op on re-entry). populateEditorPluginDropdown() repopulates
+    // the hidden native <select>; the MutationObserver in bindSelect re-syncs
+    // the visible control automatically.
+    const editorPluginSelect = document.getElementById('editor-plugin-select');
+    if (editorPluginSelect && editorPluginSelect.tagName === 'SELECT') {
+      CustomDropdown.bindSelect(editorPluginSelect);
+    }
+
     // Load initial code
     if (state.plugins.length > 0) {
       state.codeEditorInstance.setValue(state.plugins[0].code || TEMPLATES.base);
@@ -736,6 +745,10 @@ class CustomProviderPlugin(BasePlugin):
     // Snippet insertion handler
     const templateSelect = document.getElementById('editor-template-select');
     if (templateSelect) {
+      // Issue #17: upgrade the native select to the custom obsidian dropdown
+      // (no-op if already bound). Placeholder option (value='') renders as the
+      // trigger label; the panel hides it like a native popup would.
+      CustomDropdown.bindSelect(templateSelect, { placeholder: 'Insert Snippet...' });
       templateSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         if (!val || !TEMPLATES[val]) return;
@@ -748,6 +761,8 @@ class CustomProviderPlugin(BasePlugin):
     }
 
     // Plugin dropdown change
+    // Issue #17: the native select is upgraded by CustomDropdown.bindSelect
+    // below (inside initCodeEditor), so .value reads here keep working.
     const pluginSelect = document.getElementById('editor-plugin-select');
     if (pluginSelect) {
       pluginSelect.addEventListener('change', (e) => {
@@ -2588,4 +2603,1010 @@ class ${pName.replace(/\s+/g, '')}Plugin(BasePlugin):
       }
     }, 5000);
   });
+
+  // ===========================================================================
+  // CUSTOM DROPDOWN COMPONENT (Issue #17)
+  // ---------------------------------------------------------------------------
+  // Replaces every native <select> in the UI with an obsidian-styled trigger +
+  // listbox panel. The native <select> (hidden + aria-hidden in index.html)
+  // stays as the source of truth; this component renders the visible control
+  // and proxies ALL legacy value semantics so every existing app.js code path
+  // keeps working unchanged:
+  //
+  //   read  el.value                     -> real select value (trapped getter)
+  //   el.value = 'x'                     -> trapped setter syncs the control
+  //   select.selectedIndex = i           -> proxied as well
+  //   el.addEventListener('change', fn)  -> component dispatches native change
+  //   sel.innerHTML = ''; sel.append(..) -> MutationObserver re-syncs options
+  //
+  // Design / a11y decisions (documented per contracts/README-dropdown.md):
+  //   - Trigger copies the host select's computed min-height / padding /
+  //     radius / font / width, so the control occupies exactly the same space
+  //     (38 / 40 / 42 / 44px variants) - no layout shift.
+  //   - Panel is position:fixed (viewport coordinates) and appended to
+  //     document.body, so overflow-hidden ancestors (editor toolbar, modal
+  //     bodies) can never clip it.
+  //   - Panel z-index is 9100: ABOVE modals (z-50, incl. the shared
+  //     modal-close Escape handler) and BELOW toasts (#toast-container,
+  //     z-index 9999). Documented in style.css too.
+  //   - Escape inside an open panel closes ONLY the panel: the panel keydown
+  //     handler runs on the document in capture phase and stopPropagation()s,
+  //     so the modal-close Escape handler (bubble phase on document) never
+  //     sees the key while a panel is open.
+  //   - Closing a modal (its .hidden class is restored) closes any open panel.
+  //   - Keyboard: Enter / Space open, ArrowUp / Down move the highlight
+  //     (wrapping through selectable options), Enter selects, Escape and Tab
+  //     close. Focus stays on the trigger; the panel links via
+  //     aria-activedescendant, role=listbox / role=option + aria-selected.
+  //   - Optgroup support: leading group header per label (sticky, matches
+  //     the playground model picker's per-provider optgroups).
+  //   - Selected option renders a check mark; empty selects show a
+  //     placeholder state.
+  // ===========================================================================
+  const CustomDropdown = (function () {
+    'use strict';
+
+    const registry = [];
+    let openDD = null;
+    let idCounter = 0;
+
+    function nextId(prefix) {
+      idCounter += 1;
+      return `${prefix}-${idCounter}`;
+    }
+
+    function esc(text) {
+      return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /** Snapshot <option>/<optgroup> children into plain descriptors. */
+    function readSelectOptions(select) {
+      const options = [];
+      if (!select) return options;
+      Array.from(select.children).forEach((node) => {
+        if (node.tagName === 'OPTGROUP') {
+          const groupLabel = node.getAttribute('label') || '';
+          Array.from(node.children).forEach((opt) => {
+            if (opt.tagName === 'OPTION') {
+              const o = { value: opt.value, label: opt.textContent, group: groupLabel, disabled: opt.disabled };
+              if (opt.selected) o.selected = true;
+              options.push(o);
+            }
+          });
+        } else if (node.tagName === 'OPTION') {
+          const o = { value: node.value, label: node.textContent, group: null, disabled: node.disabled };
+          if (node.selected) o.selected = true;
+          options.push(o);
+        }
+      });
+      return options;
+    }
+
+    function findById(select) {
+      for (let i = 0; i < registry.length; i += 1) {
+        if (registry[i].select === select) return registry[i];
+      }
+      return null;
+    }
+
+    // Original HTMLSelectElement.prototype accessors: every trapped
+    // get/set funnels through these so no trap ever re-enters itself.
+    const nativeSelectProps = {
+      value: (() => {
+        const d = Object.getOwnPropertyDescriptor(
+          Object.getPrototypeOf(document.createElement('select')), 'value'
+        );
+        return { get: d.get, set: d.set };
+      })(),
+      selectedIndex: (() => {
+        const d = Object.getOwnPropertyDescriptor(
+          Object.getPrototypeOf(document.createElement('select')), 'selectedIndex'
+        );
+        return { get: d.get, set: d.set };
+      })()
+    };
+
+    function selectedValue(select) {
+      if (!select) return '';
+      // Uses the native selectedIndex accessor (safe inside the trap), but
+      // plain property access on the option itself — the HTMLSelectElement
+      // value getter would throw Illegal invocation on an HTMLOptionElement.
+      const i = nativeSelectProps.selectedIndex.get.call(select);
+      if (i >= 0 && select.options[i]) {
+        return select.options[i].value;
+      }
+      return '';
+    }
+
+    function findOptionByValue(opts, value) {
+      const v = String(value);
+      for (let i = 0; i < opts.length; i += 1) {
+        if (String(opts[i].value) === v) return opts[i];
+      }
+      return null;
+    }
+
+    function indexOfOptionValue(select, value) {
+      const v = String(value);
+      for (let i = 0; i < select.options.length; i += 1) {
+        if (String(select.options[i].value) === v) return i;
+      }
+      return -1;
+    }
+
+    /**
+     * Upgrade a native <select> in place (idempotent; binds once per select).
+     * Returns the instance handle (or the existing one).
+     */
+    function bindSelect(select, opts) {
+      if (!select || select.tagName !== 'SELECT') return null;
+      if (select.closest && select.closest('template')) return null;
+      const existing = findById(select);
+      if (existing) return existing;
+      const cfg = opts || {};
+      return create({
+        select: select,
+        placeholder: cfg.placeholder || null,
+        onChange: typeof cfg.onChange === 'function' ? cfg.onChange : null,
+        className: cfg.className || '',
+        disabled: !!cfg.disabled
+      });
+    }
+
+    function normalizeOption(o) {
+      return {
+        value: String(o.value),
+        label: o.label != null ? String(o.label) : String(o.value),
+        group: o.group != null ? String(o.group) : null,
+        disabled: !!o.disabled
+      };
+    }
+
+    // NOTE on cfg.el: create() accepts a plain render target for standalone
+    // use (contract passer). Every call site in THIS app uses bindSelect().
+    function create(cfg) {
+      const dd = {
+        select: cfg.select || null,
+        placeholder: cfg.placeholder || null,
+        userOnChange: typeof cfg.onChange === 'function' ? cfg.onChange : null,
+        options: cfg.select
+          ? readSelectOptions(cfg.select)
+          : (Array.isArray(cfg.options) ? cfg.options.map(normalizeOption) : []),
+        value: '',
+        disabled: !!cfg.disabled,
+        disabledViaSelect: false,
+        isBoundNative: !!cfg.select, // value lives on the native select
+        host: null,
+        trigger: null,
+        label: null,
+        panel: null,
+        rows: null,
+        selectable: [],
+        activeIndex: -1,
+        observer: null,
+        syncingFromSelect: false,
+        syncQueued: false,
+        pendingValue: null, // staged value while the select has no options yet
+        triggerId: null
+      };
+
+      if (dd.select) {
+        dd.value = selectedValue(dd.select);
+        dd.disabledViaSelect = dd.select.disabled;
+      } else if (cfg.value != null) {
+        dd.value = String(cfg.value);
+      }
+
+      renderHost(dd, cfg);
+      dd.host.dd = dd;
+      registry.push(dd);
+
+      if (dd.select) {
+        wireSelectProxy(dd);
+        attachObserver(dd);
+      }
+      syncLabel(dd);
+      syncDisabled(dd);
+
+      return dd;
+    }
+
+    // -----------------------------------------------------------------------
+    // DOM construction
+    // -----------------------------------------------------------------------
+    function renderHost(dd, cfg) {
+      const doc = dd.select ? dd.select.ownerDocument : document;
+
+      // Host wraps the trigger. Sizing mirrors the source select: selects
+      // carrying Tailwind's `w-full` become block-level full-width hosts
+      // (.dd-w-full); the rest are content-sized inline-blocks, which also
+      // behave correctly as flex items (e.g. the editor toolbar row).
+      const host = doc.createElement('span');
+      host.className = 'dd-host';
+      if (cfg.className) host.className += ' ' + String(cfg.className);
+
+      // The trigger INHERITS the select's own class list (bg-[#09090b],
+      // border-white/10, rounded-lg, px-*, py-*, text-sm, font-mono,
+      // min-h-[40px], w-full, focus:/hover: variants, select-obsidian...).
+      // Same classes => same rendered look as the original select, cascade
+      // order irrelevant. `.select-obsidian` also supplies the chevron
+      // background-image + its 2.25rem right padding reservation, so no
+      // SVG chevron is appended for bound selects.
+      const trigger = doc.createElement('button');
+      trigger.type = 'button';
+      trigger.className = dd.select
+        ? dd.select.className + ' dd-trigger'
+        : 'dd-trigger';
+      trigger.setAttribute('aria-haspopup', 'listbox');
+      trigger.setAttribute('aria-expanded', 'false');
+      if (dd.select && dd.select.id) {
+        trigger.setAttribute('data-dd-for', dd.select.id);
+        host.setAttribute('data-dd-host', dd.select.id);
+        if (dd.select.classList.contains('w-full')) host.classList.add('dd-w-full');
+      }
+
+      const label = doc.createElement('span');
+      label.className = 'dd-label';
+      trigger.appendChild(label);
+
+      if (!trigger.classList.contains('select-obsidian')) {
+        // Standalone triggers (no .select-obsidian chevron background) get an
+        // explicit inline chevron.
+        const chevron = doc.createElement('span');
+        chevron.className = 'dd-chevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+        trigger.appendChild(chevron);
+      }
+
+      host.appendChild(trigger);
+
+      if (dd.select) {
+        dd.select.insertAdjacentElement('afterend', host);
+      } else if (cfg.el) {
+        cfg.el.appendChild(host);
+      }
+
+      dd.host = host;
+      dd.trigger = trigger;
+      dd.label = label;
+      dd.triggerId = nextId('dd');
+
+      trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (dd.disabled || dd.disabledViaSelect) return;
+        if (openDD === dd) closePanel(dd);
+        else openPanel(dd);
+      });
+
+      trigger.addEventListener('keydown', (e) => {
+        if (dd.disabled || dd.disabledViaSelect) return;
+        // While a panel is open, the document-level capture handler owns the
+        // keyboard (it preventDefaults what it handles); skip to avoid a
+        // close-then-reopen race when the panel was just committed/closed.
+        if (e.defaultPrevented) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          openPanel(dd);
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          e.stopPropagation();
+          openPanel(dd, e.key === 'ArrowDown' ? 1 : -1);
+        }
+        // Escape / Tab while closed: native behavior (modal close / focus move).
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // Panel construction + content render
+    // -----------------------------------------------------------------------
+    function ensurePanel(dd) {
+      if (dd.panel && dd.panel.isConnected) return dd.panel;
+      if (dd.panel) dd.panel = null;
+
+      const doc = dd.select ? (dd.select.ownerDocument || document) : document;
+      const panel = doc.createElement('div');
+      panel.className = 'dd-panel';
+      panel.setAttribute('role', 'listbox');
+      if (dd.triggerId) {
+        panel.id = dd.triggerId + '-panel';
+        dd.trigger.setAttribute('aria-controls', panel.id);
+      }
+
+      // Appended to <body>, position:fixed => cannot be clipped by overflow
+      // ancestors; positioned in viewport coordinates in positionPanel().
+      doc.body.appendChild(panel);
+      dd.panel = panel;
+      return panel;
+    }
+
+    function renderPanelContent(dd) {
+      const panel = ensurePanel(dd);
+      panel.innerHTML = '';
+      dd.rows = [];
+
+      const selectable = [];
+      let lastGroup = null;
+
+      dd.options.forEach((opt, i) => {
+        if (opt.group && opt.group !== lastGroup) {
+          const head = document.createElement('div');
+          head.className = 'dd-group-label';
+          head.textContent = opt.group;
+          head.setAttribute('role', 'presentation');
+          panel.appendChild(head);
+          lastGroup = opt.group;
+        } else if (!opt.group) {
+          lastGroup = null;
+        }
+
+        const row = document.createElement('div');
+        row.className = 'dd-option';
+        row.setAttribute('role', 'option');
+        row.setAttribute('data-index', String(i));
+        row.setAttribute('aria-selected', String(dd.value === String(opt.value)));
+        if (opt.disabled) row.classList.add('dd-option--disabled');
+        if (dd.value === String(opt.value)) row.classList.add('is-selected');
+        row.innerHTML = '<span class="dd-opt-text">' + esc(opt.label) + '</span>';
+
+        // Row click => commit that option (mouse support)
+        row.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (opt.disabled) return;
+          commit(dd, opt);
+        });
+
+        panel.appendChild(row);
+        dd.rows[i] = row;
+
+        if (!opt.disabled) selectable.push(i);
+      });
+
+      if (dd.options.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'dd-empty';
+        empty.textContent = dd.placeholder || 'No options available';
+        panel.appendChild(empty);
+      }
+
+      dd.selectable = selectable;
+    }
+
+    // -----------------------------------------------------------------------
+    // Open / close / position
+    // -----------------------------------------------------------------------
+    function openPanel(dd, step) {
+      if (openDD && openDD !== dd) closePanel(openDD, { silent: true });
+      if (openDD === dd) return; // already open (trigger double-click)
+      // Re-read latest state before opening (populate may have raced).
+      if (dd.select && !dd.syncingFromSelect) syncFromSelect(dd);
+
+      renderPanelContent(dd);
+      positionPanel(dd);
+
+      dd.host.classList.add('is-open');
+      dd.trigger.setAttribute('aria-expanded', 'true');
+
+      dd.panelScroll = function () {
+        if (openDD === dd) positionPanel(dd);
+      };
+      window.addEventListener('resize', dd.panelScroll);
+      document.addEventListener('scroll', dd.panelScroll, true);
+
+      openDD = dd;
+
+      requestAnimationFrame(() => {
+        if (openDD !== dd) return;
+        dd.panel.classList.add('is-open');
+        // Initial highlight: the committed value if present, else nearest
+        // selectable option in the arrow direction (or first).
+        let pos = -1;
+        if (dd.value !== '') {
+          for (let p = 0; p < dd.selectable.length; p += 1) {
+            if (dd.options[dd.selectable[p]] && String(dd.options[dd.selectable[p]].value) === String(dd.value)) {
+              pos = p;
+              break;
+            }
+          }
+        }
+        if (pos < 0 && step) pos = step > 0 ? 0 : dd.selectable.length - 1;
+        if (pos < 0) pos = 0;
+        if (dd.selectable.length > 0) setActive(dd, dd.selectable[pos], { scroll: false });
+        scrollSelectedIntoView(dd);
+      });
+    }
+
+    function closePanel(dd, opts) {
+      if (openDD !== dd) return;
+      const o = opts || {};
+      openDD = null;
+
+      if (dd.panelScroll) {
+        window.removeEventListener('resize', dd.panelScroll);
+        document.removeEventListener('scroll', dd.panelScroll, true);
+        dd.panelScroll = null;
+      }
+
+      dd.host.classList.remove('is-open');
+      dd.trigger.setAttribute('aria-expanded', 'false');
+      dd.trigger.removeAttribute('aria-activedescendant');
+
+      if (dd.panel) {
+        const panel = dd.panel;
+        dd.panel = null;
+        dd.rows = null;
+        dd.activeIndex = -1;
+        dd.trigger.removeAttribute('aria-controls');
+        panel.classList.remove('is-open');
+        setTimeout(() => panel.remove(), 140);
+      }
+
+      if (!o.silent) dd.trigger.focus({ preventScroll: true });
+    }
+
+    function positionPanel(dd) {
+      const panel = ensurePanel(dd);
+      const t = dd.trigger.getBoundingClientRect();
+      const margin = 6;
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+
+      const maxH = Math.max(140, Math.min(340, Math.round(vh * 0.45)));
+      const spaceBelow = vh - t.bottom - margin;
+      const spaceAbove = t.top - margin;
+      const openUp = spaceBelow < 210 && spaceAbove > spaceBelow;
+      const budget = Math.floor(openUp ? Math.min(maxH, spaceAbove) : Math.min(maxH, spaceBelow));
+
+      // Measure hidden (opacity 0, untransformed) so the flip decision is
+      // based on the real rendered size. .is-measuring disables transitions.
+      panel.classList.add('is-measuring');
+      panel.style.top = '0px';
+      panel.style.left = '0px';
+      panel.style.setProperty('--dd-max-h', budget + 'px');
+
+      const naturalW = Math.round(panel.offsetWidth || 0);
+      const naturalH = Math.round(panel.offsetHeight || 0);
+      panel.classList.remove('is-measuring');
+
+      const targetW = Math.max(t.width, naturalW);
+      const left = Math.max(8, Math.round(Math.min(t.left, vw - targetW - 8)));
+      const top = openUp
+        ? Math.max(8, Math.round(t.top - Math.min(naturalH, budget) - margin))
+        : Math.round(t.bottom + margin);
+
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+      panel.style.minWidth = Math.round(t.width) + 'px';
+      panel.classList.toggle('dd-panel--up', openUp);
+    }
+
+    function setActive(dd, index, opts) {
+      const o = opts || {};
+      if (!dd.rows || index < 0 || index >= dd.rows.length) return;
+      dd.activeIndex = index;
+      dd.rows.forEach((r) => {
+        if (r) r.classList.remove('is-active');
+      });
+      const row = dd.rows[index];
+      if (row) {
+        row.classList.add('is-active');
+        const optId = dd.triggerId + '-opt-' + index;
+        row.id = optId;
+        dd.trigger.setAttribute('aria-activedescendant', optId);
+        if (o.scroll !== false) row.scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    function scrollSelectedIntoView(dd) {
+      if (!dd.rows) return;
+      const row = dd.rows[dd.activeIndex] || null;
+      if (row) {
+        row.scrollIntoView({ block: 'nearest' });
+        const rect = row.getBoundingClientRect();
+        const panelRect = dd.panel ? dd.panel.getBoundingClientRect() : null;
+        if (panelRect && (rect.top < panelRect.top || rect.bottom > panelRect.bottom)) {
+          dd.panel.scrollTop += rect.top - panelRect.top;
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Global keyboard (capture) + outside pointer
+    // -----------------------------------------------------------------------
+    function handlePanelKeyDown(e) {
+      const dd = openDD;
+      if (!dd) return;
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          e.stopPropagation(); // the modal-close handler must NOT see this
+          closePanel(dd);
+          break;
+        case 'Tab':
+          e.preventDefault();
+          e.stopPropagation();
+          closePanel(dd, { silent: true });
+          break;
+        case 'ArrowDown': {
+          e.preventDefault();
+          e.stopPropagation();
+          if (dd.selectable.length > 0) {
+            const curPos = dd.selectable.indexOf(dd.activeIndex);
+            const nextPos = curPos < 0 ? 0 : (curPos + 1) % dd.selectable.length;
+            setActive(dd, dd.selectable[nextPos]);
+          }
+          break;
+        }
+        case 'ArrowUp': {
+          e.preventDefault();
+          e.stopPropagation();
+          if (dd.selectable.length > 0) {
+            const curPos = dd.selectable.indexOf(dd.activeIndex);
+            const prevPos = curPos < 0 ? 0 : (curPos - 1 + dd.selectable.length) % dd.selectable.length;
+            setActive(dd, dd.selectable[prevPos]);
+          }
+          break;
+        }
+        case 'Home':
+        case 'End': {
+          if (dd.selectable.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            setActive(dd, e.key === 'Home' ? dd.selectable[0] : dd.selectable[dd.selectable.length - 1]);
+          }
+          break;
+        }
+        case 'Enter':
+        case ' ': {
+          e.preventDefault();
+          e.stopPropagation();
+          const opt = dd.options[dd.activeIndex];
+          if (opt && !opt.disabled) commit(dd, opt);
+          else closePanel(dd);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    function handleOutsidePointer(e) {
+      const dd = openDD;
+      if (!dd) return;
+      if (dd.host && dd.panel && !dd.host.contains(e.target) && !dd.panel.contains(e.target)) {
+        closePanel(dd, { silent: true });
+      }
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointer, true);
+    document.addEventListener('keydown', handlePanelKeyDown, true);
+
+    // Closing a modal must close any open dropdown bound inside it.
+    const modalWatcher = new MutationObserver(() => {
+      if (!openDD || !openDD.host) return;
+      const modal = openDD.host.closest('.modal-backdrop');
+      if (modal && modal.classList.contains('hidden')) {
+        closePanel(openDD, { silent: true });
+      }
+    });
+    modalWatcher.observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+
+    // -----------------------------------------------------------------------
+    // Commit + native-select proxy
+    // -----------------------------------------------------------------------
+    function commit(dd, opt) {
+      const prev = String(dd.value);
+      const next = String(opt.value);
+      dd.pendingValue = null;
+      dd.value = next;
+      if (dd.select) writeThroughToSelect(dd, next);
+      syncLabel(dd);
+      closePanel(dd);
+      if (prev !== next) {
+        if (dd.userOnChange) {
+          try { dd.userOnChange(next, opt); } catch (_) { /* listener errors are not ours */ }
+        }
+        if (dd.select) {
+          // Native 'change' so existing app.js listeners run unchanged.
+          // Microtask: listeners read a fully committed select value.
+          queueMicrotask(() => {
+            dd.select.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        }
+      }
+    }
+
+    function writeThroughToSelect(dd, value) {
+      // The shadow value lives on dd; the native select mirrors it (the
+      // hidden select stays the source of truth for ALL readers).
+      const select = dd.select;
+      if (!select) return;
+      const idx = indexOfOptionValue(select, value);
+      dd.syncingFromSelect = true;
+      try {
+        if (idx >= 0) {
+          nativeSelectProps.selectedIndex.set.call(select, idx);
+          nativeSelectProps.value.set.call(select, value);
+          dd.pendingValue = null;
+        } else if (select.options.length === 0) {
+          dd.pendingValue = value; // replay when options are populated
+        } else {
+          // Unknown value: leave the DOM untouched; the component still
+          // reports it (legacy code sometimes sets transient values).
+          dd.pendingValue = value;
+        }
+      } finally {
+        dd.syncingFromSelect = false;
+      }
+      syncLabel(dd);
+    }
+
+    function wireSelectProxy(dd) {
+      const select = dd.select;
+      if (!select) return;
+
+      // 'value' trap: legacy readers get the truth, legacy writers sync the
+      // custom control. All accesses funnel through the ORIGINAL accessors
+      // captured above, so the traps can never re-enter themselves.
+      trapProperty(select, 'value', {
+        get() {
+          if (dd.pendingValue != null) return String(dd.pendingValue);
+          return nativeSelectProps.value.get.call(select);
+        },
+        set(v) {
+          dd.value = String(v);
+          writeThroughToSelect(dd, String(v));
+          scheduleSyncFromSelect(dd);
+        }
+      });
+
+      // 'selectedIndex' trap: identical pattern via native accessors.
+      trapProperty(select, 'selectedIndex', {
+        get() {
+          return nativeSelectProps.selectedIndex.get.call(select);
+        },
+        set(i) {
+          const opts = select.options;
+          if (typeof i === 'number' && i >= 0 && i < opts.length) {
+            dd.value = String(opts[i].value);
+            writeThroughToSelect(dd, dd.value);
+          } else if (i === -1) {
+            dd.value = '';
+          }
+          scheduleSyncFromSelect(dd);
+        }
+      });
+    }
+
+    function trapProperty(el, prop, hooks) {
+      const current = Object.getOwnPropertyDescriptor(el, prop);
+      if (current && current.configurable === false) return false;
+      try {
+        Object.defineProperty(el, prop, {
+          configurable: true,
+          enumerable: current ? current.enumerable : true,
+          get: hooks.get,
+          set: hooks.set
+        });
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function attachObserver(dd) {
+      // Populate patterns used by app.js: sel.innerHTML = '' + appendChild
+      // (<option>/<optgroup>), and disabled flips. childList + attributes.
+      const obs = new MutationObserver(() => {
+        if (dd.syncingFromSelect) return;
+        scheduleSyncFromSelect(dd);
+      });
+      obs.observe(dd.select, {
+        childList: true,
+        attributes: true,
+        attributeFilter: ['disabled', 'selected'],
+        subtree: false
+      });
+      dd.observer = obs;
+    }
+
+    function syncFromSelect(dd) {
+      const s = dd.select;
+      if (!s) return;
+      if (dd.syncingFromSelect) {
+        // Guarded-path re-entry (events firing while our own writeThrough is
+        // mid-flight): only refresh the option snapshot, never touch values.
+        dd.options = readSelectOptions(s);
+        return;
+      }
+      dd.options = readSelectOptions(s);
+      dd.disabledViaSelect = s.disabled;
+      if (dd.pendingValue != null && findOptionByValue(dd.options, dd.pendingValue)) {
+        // Options arrived for a previously staged value: replay it now.
+        const staged = String(dd.pendingValue);
+        dd.pendingValue = null;
+        dd.value = staged;
+        writeThroughToSelect(dd, staged);
+      } else {
+        dd.pendingValue = null;
+        dd.value = selectedValue(s);
+      }
+      syncLabel(dd);
+      syncDisabled(dd);
+      if (openDD === dd) {
+        renderPanelContent(dd);
+        positionPanel(dd);
+      }
+    }
+
+    function scheduleSyncFromSelect(dd) {
+      if (dd.syncQueued) return;
+      dd.syncQueued = true;
+      queueMicrotask(() => {
+        dd.syncQueued = false;
+        syncFromSelect(dd);
+      });
+    }
+
+    /** Big flush + label refresh (used after bulk option population). */
+    function flushSync(dd) {
+      scheduleSyncFromSelect(dd);
+    }
+
+    // -----------------------------------------------------------------------
+    // Label + disabled state sync
+    // -----------------------------------------------------------------------
+    function syncLabel(dd) {
+      if (!dd.label || !dd.host) return;
+      const current = findOptionByValue(dd.options, dd.value);
+      let text = '';
+      if (current) {
+        text = current.label;
+      } else if (dd.value !== '') {
+        text = dd.value;
+      } else if (dd.placeholder) {
+        text = dd.placeholder;
+      } else if (dd.options.length > 0) {
+        const first = dd.options.find((o) => !o.disabled) || dd.options[0];
+        text = first ? first.label : '';
+      }
+      dd.label.textContent = text;
+      const isPlaceholder = !current && String(dd.value) === '' && !!dd.placeholder;
+      if (isPlaceholder) dd.label.classList.add('dd-label--placeholder');
+      else dd.label.classList.remove('dd-label--placeholder');
+      dd.trigger.title = text;
+    }
+
+    function syncDisabled(dd) {
+      const disabled = !!dd.disabled || !!dd.disabledViaSelect;
+      dd.trigger.disabled = disabled;
+      dd.host.classList.toggle('is-disabled', disabled);
+    }
+
+    // -----------------------------------------------------------------------
+    // Public API (mirrors contracts/README-dropdown.md)
+    // -----------------------------------------------------------------------
+    const api = {
+      /** Contract factory. */
+      create: create,
+      /** Upgrade a native <select> in place (idempotent). */
+      bindSelect: bindSelect,
+      /** Programmatic set; fires the native select 'change' event. */
+      setValue(dd, value, opts) {
+        if (!dd) return;
+        const o = opts || {};
+        const prev = String(dd.value);
+        dd.value = String(value);
+        if (dd.select) writeThroughToSelect(dd, String(value));
+        syncLabel(dd);
+        if (prev !== String(value) && !o.silent) {
+          if (dd.userOnChange) {
+            const opt = findOptionByValue(dd.options, dd.value);
+            try { dd.userOnChange(dd.value, opt); } catch (_) { /* noop */ }
+          }
+          if (dd.select) {
+            queueMicrotask(() => {
+              dd.select.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+          }
+        }
+      },
+      /** '' when nothing selected. */
+      getValue(dd) {
+        return dd ? String(dd.value) : '';
+      },
+      /** Replace the option list (standalone instances; bound ones re-read). */
+      setOptions(dd, options) {
+        if (!dd || !Array.isArray(options)) return;
+        if (dd.select) {
+          // Source of truth is the select: rebuild its option children with
+          // the component's observation suppressed, then re-read so the
+          // custom control picks the new list up in one pass.
+          dd.syncingFromSelect = true;
+          try {
+            dd.select.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            let lastGroup = null;
+            options.forEach((o) => {
+              const opt = document.createElement('option');
+              opt.value = String(o.value);
+              opt.textContent = o.label != null ? String(o.label) : String(o.value);
+              if (o.disabled) opt.disabled = true;
+              if (o.group) {
+                if (o.group !== lastGroup) {
+                  const og = document.createElement('optgroup');
+                  og.label = String(o.group);
+                  frag.appendChild(og);
+                  lastGroup = o.group;
+                }
+                const grp = frag.lastChild;
+                grp.appendChild(opt);
+              } else {
+                lastGroup = null;
+                frag.appendChild(opt);
+              }
+            });
+            dd.select.appendChild(frag);
+          } finally {
+            dd.syncingFromSelect = false;
+          }
+          syncFromSelect(dd);
+          return;
+        }
+        dd.options = options.map(normalizeOption);
+        if (!findOptionByValue(dd.options, dd.value)) dd.value = '';
+        syncLabel(dd);
+        if (openDD === dd) {
+          renderPanelContent(dd);
+          positionPanel(dd);
+        }
+      },
+      setDisabled(dd, disabled) {
+        if (!dd) return;
+        dd.disabled = !!disabled;
+        if (dd.select) dd.select.disabled = !!disabled;
+        syncDisabled(dd);
+      },
+      /** programmatic open/close helpers (tests + console debugging). */
+      open(dd) {
+        if (dd && openDD !== dd) openPanel(dd);
+      },
+      close(dd) {
+        if (dd && openDD === dd) closePanel(dd, { silent: true });
+      },
+      /** Test hook. */
+      closeAll() {
+        if (openDD) closePanel(openDD, { silent: true });
+      },
+      /** Test-only internals (used by the offline self-check harness). */
+      _internal: {
+        registry: registry,
+        readSelectOptions: readSelectOptions,
+        selectedValue: selectedValue,
+        findOptionByValue: findOptionByValue,
+        writeThroughToSelect: writeThroughToSelect,
+        syncFromSelect: syncFromSelect,
+        scheduleSyncFromSelect: scheduleSyncFromSelect,
+        flushSync: flushSync,
+        trapProperty: trapProperty,
+        positionPanel: positionPanel,
+        getOpenDD: function () { return openDD; }
+      }
+    };
+    return api;
+  })();
+
+  // Expose for external tooling / debugging; the bootstrap below uses it too.
+  window.CustomDropdown = CustomDropdown;
+
+  // ---------------------------------------------------------------------------
+  // DROPDOWN BOOTSTRAP (Issue #17) - upgrade all 9 selects as soon as the DOM
+  // is parsed. Idempotent (bindSelect binds once per select element) and runs
+  // BEFORE the first populate, so every later MutationObserver sync just
+  // refreshes the visible control.
+  // ---------------------------------------------------------------------------
+  (function upgradeAllSelects() {
+    function upgrade() {
+      const selects = document.querySelectorAll('select');
+      for (let i = 0; i < selects.length; i += 1) {
+        const sel = selects[i];
+        if (!sel.closest('template')) {
+          CustomDropdown.bindSelect(sel);
+        }
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', upgrade);
+    } else {
+      upgrade();
+    }
+  })();
+
+  // ---------------------------------------------------------------------------
+  // OFFLINE SELF-CHECK (Issue #17) - runs once on load; exercises the
+  // bindSelect adapter against a fake select element. Failures are logged as
+  // console.error so they surface in Playwright console capture; never thrown.
+  // ---------------------------------------------------------------------------
+  function customDropdownSelfCheck() {
+    const results = [];
+    function check(name, cond) {
+      results.push({ name: name, ok: !!cond });
+    }
+
+    try {
+      const CD = window.CustomDropdown;
+      check('api.create', typeof CD.create === 'function');
+      check('api.bindSelect', typeof CD.bindSelect === 'function');
+      check('api.setValue', typeof CD.setValue === 'function');
+      check('api.getValue', typeof CD.getValue === 'function');
+      check('api.setOptions', typeof CD.setOptions === 'function');
+      check('api.setDisabled', typeof CD.setDisabled === 'function');
+
+      const s = document.createElement('select');
+      s.innerHTML = '<option value="a">Alpha</option><option value="b">Beta</option>';
+      document.body.appendChild(s); // bindSelect anchors to a parent element
+
+      const dd = CD.bindSelect(s);
+      check('bindSelect returns instance', !!dd);
+      check('idempotent bindSelect', CD.bindSelect(s) === dd);
+      check('host rendered', !!(dd && dd.host));
+      check('trigger rendered', !!(dd && dd.trigger));
+      check('value getter proxied', s.value === 'a');
+
+      s.value = 'b';
+      check('value setter proxied (native mirror)', s.value === 'b');
+      check('value setter updates component', !!dd && dd.value === 'b');
+
+      s.selectedIndex = 0;
+      check('selectedIndex proxied', s.value === 'a' && !!dd && dd.value === 'a');
+
+      let fired = 0;
+      s.addEventListener('change', () => {
+        fired += 1;
+      });
+      CD.setValue(dd, 'b');
+      check('setValue holds committed value', s.value === 'b');
+
+      // Cleanup: remove the probe from the live DOM (change fires in a
+      // microtask; the listener still runs on the detached element).
+      if (dd) dd.host.remove();
+      s.remove();
+
+      queueMicrotask(() => {
+        check('change dispatched on setValue', fired >= 1);
+        const failures2 = results.filter((r) => !r.ok);
+        if (failures2.length > 0) {
+          console.error('[CustomDropdown] self-check failures:', failures2.map((f) => f.name).join(', '));
+        }
+      });
+      return; // async tail above handles reporting
+    } catch (err) {
+      results.push({ name: 'exception: ' + (err && err.message), ok: false });
+    }
+
+    const failures = results.filter((r) => !r.ok);
+    if (failures.length > 0) {
+      console.error('[CustomDropdown] self-check failures:', failures.map((f) => f.name).join(', '));
+    }
+  }
+
+  if (typeof window !== 'undefined' && !window.__customDropdownSelfCheckRan) {
+    window.__customDropdownSelfCheckRoot = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(customDropdownSelfCheck, 50);
+      });
+    } else {
+      setTimeout(customDropdownSelfCheck, 50);
+    }
+  }
 })();

@@ -371,12 +371,14 @@
             </div>
 
             <!-- Plugin Selector Dropdown -->
-            <select id="editor-plugin-select" class="select-obsidian bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[40px]">
+            <!-- Issue #17: kept as hidden source of truth; visible control rendered via CustomDropdown.bindSelect (app.js) -->
+            <select id="editor-plugin-select" hidden aria-hidden="true" class="select-obsidian bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[40px]">
               <!-- Populated dynamically -->
             </select>
 
             <!-- Template snippets selector -->
-            <select id="editor-template-select" class="select-obsidian bg-[#09090b] text-zinc-400 border border-white/10 rounded-lg px-3 py-2 text-sm hover:text-zinc-200 focus:outline-none focus:border-white/30 min-h-[40px]">
+            <!-- Issue #17: kept as hidden source of truth; visible control rendered via CustomDropdown.bindSelect (app.js) -->
+            <select id="editor-template-select" hidden aria-hidden="true" class="select-obsidian bg-[#09090b] text-zinc-400 border border-white/10 rounded-lg px-3 py-2 text-sm hover:text-zinc-200 focus:outline-none focus:border-white/30 min-h-[40px]">
               <option value="">Insert Snippet...</option>
               <option value="base">Standard BasePlugin</option>
               <option value="auth_header">Custom Header Injection</option>
@@ -479,7 +481,7 @@
       <div class="glass-panel p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-sm">
         <div class="flex items-center gap-2.5">
           <span class="text-zinc-400 font-medium">Filter Provider:</span>
-          <select id="filter-accounts-provider" class="select-obsidian bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none min-h-[38px]">
+          <select id="filter-accounts-provider" hidden aria-hidden="true" class="select-obsidian bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none min-h-[38px]">
             <option value="all">All Providers</option>
           </select>
         </div>
@@ -589,7 +591,7 @@
       <div class="glass-panel p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-sm">
         <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <input type="text" id="filter-logs-search" placeholder="Search model, endpoint, or error..." class="bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2 text-sm w-full sm:w-72 focus:outline-none focus:border-white/30 placeholder:text-zinc-600 font-mono min-h-[40px]" />
-          <select id="filter-logs-status" class="select-obsidian bg-[#09090b] text-zinc-300 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[40px]">
+          <select id="filter-logs-status" hidden aria-hidden="true" class="select-obsidian bg-[#09090b] text-zinc-300 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none min-h-[40px]">
             <option value="all">All Status Codes</option>
             <option value="200">200 OK</option>
             <option value="error">Errors &amp; Quotas (4xx / 5xx)</option>
@@ -661,7 +663,8 @@
             <!-- Key Selector -->
             <div>
               <label class="block text-sm font-medium text-zinc-300 mb-1">Router Key</label>
-              <select id="pg-key-select" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-white/30 min-h-[42px]">
+              <!-- Issue #17: hidden source of truth + custom control (CustomDropdown.bindSelect) -->
+              <select id="pg-key-select" hidden aria-hidden="true" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-white/30 min-h-[42px]">
                 <!-- Populated dynamically -->
               </select>
             </div>
@@ -669,7 +672,8 @@
             <!-- Model Selector -->
             <div>
               <label class="block text-sm font-medium text-zinc-300 mb-1">Model</label>
-              <select id="pg-model-select" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[42px]">
+              <!-- Issue #17: hidden source of truth + custom control (CustomDropdown.bindSelect, optgroup-aware) -->
+              <select id="pg-model-select" hidden aria-hidden="true" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-white/30 min-h-[42px]">
                 <!-- Populated dynamically -->
               </select>
             </div>
@@ -1197,7 +1201,7 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
         <!-- Provider Select -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Provider *</label>
-          <select id="acc-provider" required class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
+          <select id="acc-provider" required hidden aria-hidden="true" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
             <!-- Populated dynamically -->
           </select>
         </div>
@@ -1349,7 +1353,7 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
         <!-- Expiration Preset -->
         <div>
           <label class="block font-medium text-zinc-300 mb-1">Expiration</label>
-          <select id="keygen-expires" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
+          <select id="keygen-expires" hidden aria-hidden="true" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
             <option value="never">Never (Persistent)</option>
             <option value="7d">7 Days</option>
             <option value="30d">30 Days</option>
@@ -1445,7 +1449,7 @@ export OPENCODE_API_KEY=slp-live-demo</pre>
 
         <div>
           <label class="block font-medium text-zinc-300 mb-1">API Protocol Format</label>
-          <select id="new-plugin-format" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
+          <select id="new-plugin-format" hidden aria-hidden="true" class="select-obsidian w-full bg-[#09090b] text-zinc-200 border border-white/10 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-white/30 min-h-[44px]">
             <option value="openai">OpenAI Compatible (/v1/chat/completions)</option>
             <option value="anthropic">Anthropic Compatible (/v1/messages)</option>
           </select>

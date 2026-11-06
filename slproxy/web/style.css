@@ -470,6 +470,214 @@ textarea:focus {
   background: #52525b;
 }
 
+/* ==========================================================================
+   Custom Dropdown Component (Issue #17)
+   Overlay control replacing native <select>. The hidden <select> stays in the
+   DOM as source of truth; this component renders the visible trigger + panel.
+   Trigger inherits the host select's own classes (see bindSelect), plus these.
+   ========================================================================== */
+
+/* Host wrapper. Default: content-sized inline-block, which also behaves as a
+   proper flex item (editor toolbar / filter rows). Selects carrying Tailwind's
+   `w-full` get the .dd-w-full variant => block-level 100% host.
+   The PANEL itself is position:fixed and appended to <body> (see app.js), so
+   it can never be clipped by overflow:hidden ancestors such as the editor
+   toolbar or modal overflow-y bodies. */
+.dd-host {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.dd-host.dd-w-full {
+  display: block;
+  width: 100%;
+}
+
+/* Trigger button (what the user clicks). For bound selects the trigger
+   INHERITS the source select's own class list (bg-[#09090b], border-white/10,
+   rounded-lg, px-*, py-*, text-sm, font-mono, min-h-[38..44px], w-full,
+   focus:/hover: variants, select-obsidian) — see renderHost in app.js — so it
+   renders pixel-identically to the original native select with zero layout
+   shift. This base rule only adds layout behavior; .select-obsidian supplies
+   the chevron background and its reserved right padding. */
+.dd-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  min-height: 40px;
+}
+
+.dd-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dd-label--placeholder {
+  color: var(--text-muted);
+}
+
+.dd-trigger:disabled,
+.dd-host.is-disabled .dd-trigger {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Chevron icon - rotates when open (matches old select arrow SVG) */
+.dd-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--text-secondary);
+  transition: transform 0.18s ease, color 0.15s ease;
+}
+
+.dd-host.is-open .dd-chevron {
+  transform: rotate(180deg);
+  color: var(--text-primary);
+}
+
+/* Fixed-position listbox panel.
+   Z-INDEX DOCUMENTED (Issue #17): modals render at z-50 (modal-backdrop,
+   index.html), toast container at z-index 9999 (style.css). The panel must
+   layer ABOVE every modal while its own host trigger stays inside the modal's
+   stacking context, and must never cover toasts. z-index: 9100 satisfies all
+   three: 9100 > 50 (modals), 9100 < 9999 (toasts). Confirm/alert modals use
+   the same z-50 here, so 9100 also wins over them. */
+.dd-panel {
+  position: fixed;
+  z-index: 9100; /* > z-50 modals, < z-9999 toasts - see comment above */
+  top: 0;
+  left: 0;
+  /* NOTE: no percentage min-width here — on a fixed element % resolves
+     against the VIEWPORT and would inflate measurement (see positionPanel).
+     The inline min-width set by app.js anchors it to the trigger width. */
+  min-width: 9rem;
+  max-height: var(--dd-max-h, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #111114;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07), 0 20px 45px -12px rgba(0, 0, 0, 0.9);
+  padding: 0.375rem;
+  opacity: 0;
+  pointer-events: none; /* invisible (measuring / fading) panels never block clicks */
+  transform: translateY(-4px) scale(0.99);
+  transition: opacity 0.14s ease, transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.dd-panel--up {
+  transform-origin: bottom center;
+  transform: translateY(4px) scale(0.99);
+}
+
+.dd-panel.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+/* Measurement mode: no transitions so size reads are exact on first open */
+.dd-panel.is-measuring {
+  transition: none;
+}
+
+/* Sticky group headers (e.g. playground model picker groups by provider) */
+.dd-group-label {
+  position: sticky;
+  top: -0.375rem; /* cancel the panel's 0.375rem padding so the header pins flush */
+  z-index: 1;
+  display: block;
+  padding: 0.375rem 0.625rem 0.25rem;
+  margin-top: 0.125rem;
+  background: #111114;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-shadow: 0 1px 0 #111114;
+  pointer-events: none;
+}
+
+/* Option rows */
+.dd-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-option:hover,
+.dd-option.is-active {
+  background: rgba(255, 255, 255, 0.05); /* bg-white/5 design-system hover */
+  color: #ffffff;
+}
+
+/* Selected option shows a check mark (contract requirement) */
+.dd-option.is-selected {
+  font-weight: 600;
+}
+
+.dd-option.is-selected::after {
+  content: '\2713'; /* check mark */
+  margin-left: auto;
+  padding-left: 0.75rem;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.dd-option--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dd-option--disabled:hover,
+.dd-option--disabled.is-active {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.dd-check {
+  margin-left: auto;
+  color: var(--text-primary);
+}
+
+/* Open trigger gets a slightly stronger border (beats border-white/10 via
+   specificity) so keyboard/click-open state is visible */
+.dd-host.is-open .dd-trigger {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Placeholder / empty-list state inside the panel */
+.dd-empty {
+  padding: 0.625rem;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* Responsive & Mobile Touch Optimizations (< 768px) */
 @media (max-width: 768px) {
   body {
@@ -489,14 +697,16 @@ textarea:focus {
     padding: 0.5rem !important;
   }
 
-  /* 44px minimum touch targets on mobile */
+  /* 44px minimum touch targets on mobile (native selects are hidden by the
+     custom dropdown component - .dd-trigger joins the same rule) */
   .btn-primary,
   .btn-secondary,
   .btn-ghost,
   .btn-danger,
   .nav-tab,
   select,
-  .select-obsidian {
+  .select-obsidian,
+  .dd-trigger {
     min-height: 44px;
   }
 
